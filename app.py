@@ -8,8 +8,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 socketio.init_app(app)
-from sefaria_api.prayermodel import PrayerService, PrayerText, Word
-from sefaria_api.texthelperfunctions import get_prayer_text
 
 from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
 
@@ -72,27 +70,42 @@ def EN():
 def HE():
     return render_template("HE.html")
 
-@app.route('/siddur')
+@app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
-    text = ''
-    service_name = 'Shacharit'
-    prayer_name = 'Ashrei'
-    lang = 'he'
-    section_name = 'Pesukei Dezimra'
-    if request.method == 'POST':
-        if request.form.get('language') == 'EN':
-            lang = 'en'
-        elif request.form.get('language') == 'HE':
-            lang = 'he'
-        selectedPrayerType = request.form.get('prayerType')
-        if selectedPrayerType in ['Shacharit', 'Mincha', 'Maariv']:
-            service_name = selectedPrayerType
-    text = get_prayer_text(service_name, prayer_name, lang, section_name)
-    return render_template('siddur.html', text=text)
+    services        = PrayerService.query.all()
+    selected_service = request.form.get('service', 'Shacharit')
+    selected_prayer  = request.form.get('prayer', '')
+    selected_lang    = request.form.get('lang', 'vowel')
 
-        
+    service = PrayerService.query.filter_by(name_en=selected_service).first()
+    prayers = service.prayer_texts if service else []
 
-    
+    text   = ""
+    prayer = None
+
+    if selected_prayer and service:
+        prayer = PrayerText.query.filter(
+            PrayerText.prayer_service_id == service.id,
+            PrayerText.en_title == selected_prayer
+        ).first()
+
+        if prayer:
+            if selected_lang == 'en':
+                text = " ".join(w.word for w in prayer.english_words if w.word)
+            elif selected_lang == 'vowel':
+                text = " ".join(w.word_vowel for w in prayer.hebrew_words if w.word_vowel)
+            else:
+                text = " ".join(w.word for w in prayer.hebrew_words if w.word)
+
+    return render_template('siddur.html',
+        services         = services,
+        prayers          = prayers,
+        selected_service = selected_service,
+        selected_prayer  = selected_prayer,
+        selected_lang    = selected_lang,
+        text             = text,
+        prayer           = prayer,
+    )
 
 from websocket import wbw_socket
 

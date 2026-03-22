@@ -1,19 +1,54 @@
-<!DOCTYPE html>
-<p>{{ text }}</p>
-<form action="/siddur" method="POST">
-    <label for="service_name">Choose a prayer:</label>
-    <select name="service_name" id="service_name">
-        <option value="Shacharit">Shacharit</option>
-        <option value="Mincha">Mincha</option>
-        <option value="Maariv">Maariv</option>
-    </select>
-    <select name="prayer_name" id="prayer_name">
-        <option value="shema">Shema</option>
-    </select>
-    <select name="section_name" id="section_name">
-        <option value="Pesukei Dezimra">Pesukei Dezimra</option>
-    </select>
-    <button type="submit" name="language" value="HE">Switch to HE</button>
-    <button type="submit" name="language" value="EN">Switch to EN</button>
+{% extends "layout.html" %}
+
+{% block content %}
+
+<h1>Siddur</h1>
+
+<form method="POST" action="/siddur">
+
+  <label>Service:</label>
+  <select name="service" onchange="this.form.submit()">
+    {% for s in services %}
+      <option value="{{ s.name_en }}" {% if s.name_en == selected_service %}selected{% endif %}>
+        {{ s.name_en }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <br><br>
+
+  <label>Prayer:</label>
+  <select name="prayer" onchange="this.form.submit()">
+    <option value="">-- select --</option>
+    {% for p in prayers %}
+      <option value="{{ p.en_title }}" {% if p.en_title == selected_prayer %}selected{% endif %}>
+        {{ p.en_title }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <br><br>
+
+  <label>Language:</label>
+  <select name="lang" onchange="this.form.submit()">
+    <option value="vowel" {% if selected_lang == 'vowel' %}selected{% endif %}>Hebrew (voweled)</option>
+    <option value="he"    {% if selected_lang == 'he'    %}selected{% endif %}>Hebrew (plain)</option>
+    <option value="en"    {% if selected_lang == 'en'    %}selected{% endif %}>English</option>
+  </select>
+
 </form>
-<!---TODO: Fill this out w/ more options -->
+
+<br>
+
+{% if prayer %}
+  <p dir="{{ 'rtl' if selected_lang != 'en' else 'ltr' }}">{{ text }}</p>
+{% elif selected_prayer %}
+  <p>Could not load prayer text.</p>
+{% else %}
+  <p>Select a prayer to view the text.</p>
+{% endif %}
+
+<br>
+<button onclick="window.location.href='/'">Home</button>
+
+{% endblock %}
