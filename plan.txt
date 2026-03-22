@@ -1,0 +1,12 @@
+Pages:
+    Index:
+        - Has Buttons with main features
+            1. Highlight Text
+            2. Word by Word/Phrase by Phrase
+            3. Shiur Transciption
+                - Insert Audio File
+                - Live Transciption
+                - AllHatorah Quick Access
+        - Has login Capabilities
+            - Used to set preferences
+        
