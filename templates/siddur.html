@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<p>{{ text }}</p>
+<form action="/siddur" method="POST">
+    <label for="service_name">Choose a prayer:</label>
+    <select name="service_name" id="service_name">
+        <option value="Shacharit">Shacharit</option>
+        <option value="Mincha">Mincha</option>
+        <option value="Maariv">Maariv</option>
+    </select>
+    <select name="prayer_name" id="prayer_name">
+        <option value="shema">Shema</option>
+    </select>
+    <select name="section_name" id="section_name">
+        <option value="Pesukei Dezimra">Pesukei Dezimra</option>
+    </select>
+    <button type="submit" name="language" value="HE">Switch to HE</button>
+    <button type="submit" name="language" value="EN">Switch to EN</button>
+</form>
+<!---TODO: Fill this out w/ more options -->

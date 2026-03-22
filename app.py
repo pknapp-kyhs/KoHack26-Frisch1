@@ -8,6 +8,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 from sefaria_api.prayermodel import PrayerService, PrayerText, Word
+from sefaria_api.texthelperfunctions import get_prayer_text
 
 
 
@@ -68,3 +69,25 @@ def EN():
 @app.route('/HE')
 def HE():
     return render_template("HE.html")
+
+@app.route('/siddur')
+def siddur():
+    text = ''
+    service_name = 'Shacharit'
+    prayer_name = 'Ashrei'
+    lang = 'he'
+    section_name = 'Pesukei Dezimra'
+    if request.method == 'POST':
+        if request.form.get('language') == 'EN':
+            lang = 'en'
+        elif request.form.get('language') == 'HE':
+            lang = 'he'
+        selectedPrayerType = request.form.get('prayerType')
+        if selectedPrayerType in ['Shacharit', 'Mincha', 'Maariv']:
+            service_name = selectedPrayerType
+    text = get_prayer_text(service_name, prayer_name, lang, section_name)
+    return render_template('siddur.html', text=text)
+
+        
+
+    
