@@ -44,8 +44,7 @@
 
 <div id="speed-row">
   <label for="wpm">Speed: <strong><span id="wpm-label">60</span> WPM</strong></label><br>
-  <input type="range" id="wpm" min="10" max="300" value="60"
-         oninput="document.getElementById('wpm-label').textContent = this.value">
+  <input type="range" id="wpm" min="10" max="300" value="60">
   <br><br>
 </div>
 
@@ -102,7 +101,19 @@
   let chunks  = [];
   let idx     = 0;
   let paused  = false;
-  let delayMs = 1000;
+  let running = false;
+
+  function getDelayMs() {
+    return Math.round((60 / parseInt(wpmEl.value)) * 1000);
+  }
+
+  wpmEl.addEventListener('input', () => {
+    document.getElementById('wpm-label').textContent = wpmEl.value;
+    if (running && !paused) {
+      clearInterval(timer);
+      startAuto();
+    }
+  });
 
   function onModeChange() {
     const isManual = manualEl.checked;
@@ -151,7 +162,7 @@
       }
       showChunk(idx);
       idx++;
-    }, delayMs);
+    }, getDelayMs());
   }
 
   function loadPrayers() {
@@ -166,16 +177,14 @@
       .join('');
   });
 
-  socket.on('wbw_ready', ({ words, phrases, delay_ms }) => {
+  socket.on('wbw_ready', ({ words, phrases }) => {
     errMsg.textContent = '';
-    delayMs = delay_ms;
     const mode      = modeEl.value;
     const chunkSize = parseInt(chunkEl.value) || 3;
     chunks = buildChunks(words, phrases, mode, chunkSize);
     idx    = 0;
 
-    const isManual = manualEl.checked;
-    if (isManual) {
+    if (manualEl.checked) {
       showChunk(0);
       idx = 1;
       btnPrev.disabled = false;
@@ -195,7 +204,8 @@
   btnStart.addEventListener('click', () => {
     if (!prayerEl.value) return;
     clearInterval(timer);
-    paused = false;
+    paused  = false;
+    running = true;
     btnStart.disabled = true;
     btnStop.disabled  = false;
     btnPause.disabled = false;
@@ -230,7 +240,8 @@
 
   function reset() {
     clearInterval(timer);
-    paused = false;
+    paused  = false;
+    running = false;
     btnStart.disabled = false;
     btnStop.disabled  = true;
     btnPause.disabled = true;
