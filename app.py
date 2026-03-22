@@ -9,8 +9,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 socketio.init_app(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, Word
-from sefaria_api.texthelperfunctions import get_prayer_text, get_prayer_words
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -34,6 +33,7 @@ def login():
             session['username'] = username
             return redirect(url_for('index'))
     return render_template("login.html")
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -49,23 +49,11 @@ def signup():
         return redirect(url_for('index'))
     return render_template("signup.html")
 
-#Reads the prayer word by word
-@app.route('/wbw', methods=['POST', 'GET'])
+@app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
-    if request.method == "GET":
-        return render_template("wbw.html")
-    
-    type = request.form.get('prayerType')
-    lang = request.form.get('language')
-    prayer = request.form.get('prayer')
-    speed = request.form.get('speed')
-    
-    if lang == "english":
-        # Add 'return' here
-        return redirect(url_for('EN', prayer=prayer, type=type, speed=speed, lang=lang))
-    else:
-        # And add 'return' here
-        return redirect(url_for('HE', prayer=prayer, type=type, speed=speed, lang=lang))
+    services = PrayerService.query.all()
+    return render_template("wbw.html", services=services)
+
 @app.route('/highlight', methods=['POST'])
 def highlight():
     return render_template("highlight.html")
@@ -99,3 +87,8 @@ def HE():
         index = int(request.form.get('index'))
     text = get_prayer_words(type, prayer, lang, None)
     return render_template("HE.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
+
+from websocket import wbw_socket
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)
