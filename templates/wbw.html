@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <h1>Word by Word Prayer</h1>
+    <form method="post" action="/wbw">
+        <label for="prayerType">Choose a prayer:</label>
+            <select name="prayerType" id="prayerType">
+                <option value="shacharit">Shacharit</option>
+                <option value="mincha">Mincha</option>
+                <option value="maariv">Maariv</option>
+            </select>
+        <input type="submit" value="Submit">
+    </form>
+
+    <form method="post" action="/wbw">
+        <label for="speed">Choose speed: <span id="speedValue">50</span></label><br>
+        <input type="range" id="speed" name="speed" min="1" max="100" value="50" oninput="document.getElementById('speedValue').textContent = this.value">
+        <button type="submit">Submit</button>
+    </form>
+
+    <form method="post" action="/wbw">
+        <label for="language">Choose language:</label>
+            <select name="language" id="language">
+                <option value="english">English</option>
+                <option value="hebrew">Hebrew</option>
+            </select>
+        <input type="submit" value="Submit">
+    </form>
+    <br>
+    <button onclick="window.location.href='/'">Home</button>
+
+{% endblock %}

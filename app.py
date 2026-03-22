@@ -7,7 +7,7 @@ app.secret_key = 'SecretKey'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-from prayermodel import PrayerService, PrayerText, Word
+#from prayermodel import PrayerService, PrayerText, Word
 
 
 
@@ -20,7 +20,7 @@ class User(db.Model):
 with app.app_context():
     db.create_all()
 
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     return render_template("index.html")
 
@@ -48,3 +48,17 @@ def signup():
         session['username'] = username
         return redirect(url_for('index'))
     return render_template("signup.html")
+
+
+#Reads the prayer word by word
+@app.route('/wbw', methods=['POST', 'GET'])
+def word_by_word():
+    return render_template("wbw.html")
+
+@app.route('/highlight', methods=['POST'])
+def highlight():
+    return render_template("highlight.html")
+
+@app.route('/transcribe', methods=['POST', 'GET'])
+def transcribe():
+    return render_template("transcribe.html")

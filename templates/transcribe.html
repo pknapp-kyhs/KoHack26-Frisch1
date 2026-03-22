@@ -1,0 +1,19 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <form method="post" action="/transcribe" enctype="multipart/form-data">
+    <label for="audio">Upload audio file:</label><br>
+    <input type="file" id="audio" name="audio" accept="audio/*"><br><br>
+
+    <button type="submit">Upload</button>
+</form>
+<br>
+<form method="post" action="/transcribe">
+        <button type="submit" name="Start_Record">Start Record</button>
+</form>
+<form method="post" action="/transcribe">
+        <button type="submit" name="Stop_Record">Stop Record</button>
+</form>
+<button onclick="window.location.href='/'">Home</button>
+
+{% endblock %}
