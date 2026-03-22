@@ -10,7 +10,7 @@ db.init_app(app)
 socketio.init_app(app)
 
 from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
-
+from sefaria_api.texthelperfunctions import get_hebrew_words, get_english_words, get_hebrew_phrases, get_english_phrases
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -72,7 +72,7 @@ def EN():
         index = int(request.form.get('index'))
     else:
         index = 10
-    text = get_prayer_words(type, prayer, lang, None)
+    text = get_english_words(type, prayer, None)
     return render_template("EN.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
 @app.route('/HE' , methods=['POST', 'GET'])
 def HE():
@@ -85,7 +85,7 @@ def HE():
         lang = request.form.get('language')
         prayer = request.form.get('prayer')
         index = int(request.form.get('index'))
-    text = get_prayer_words(type, prayer, lang, None)
+    text = get_hebrew_words(type, prayer, None)
     return render_template("HE.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
 
 from websocket import wbw_socket
