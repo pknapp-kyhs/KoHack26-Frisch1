@@ -10,13 +10,14 @@ Pages:
     Highlight:
         - Display Teffilah Text
         - On/Off button for live Highlight
+        - Word Size
 
 
     Word by Word:
         - List of Prayers
         - WPM dial 
         - Displayed Text
-
+        - Word Size
 
     Shiur Transciption:
         - Insert Audio File
