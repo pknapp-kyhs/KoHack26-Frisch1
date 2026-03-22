@@ -1,21 +1,20 @@
 from flask import *
-from flask_sqlalchemy import SQLAlchemy
+from extensions import db, socketio
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
-app.secret_key = 'SecretKey'
+app.config['SECRET_KEY'] = 'SecretKey'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, Word
+db.init_app(app)
+socketio.init_app(app)
 
-
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(80), nullable=False)
-
 
 with app.app_context():
     db.create_all()
@@ -34,6 +33,7 @@ def login():
             session['username'] = username
             return redirect(url_for('index'))
     return render_template("login.html")
+
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
@@ -49,10 +49,10 @@ def signup():
         return redirect(url_for('index'))
     return render_template("signup.html")
 
-#Reads the prayer word by word
-@app.route('/wbw', methods=['POST', 'GET'])
+@app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
-    return render_template("wbw.html")
+    services = PrayerService.query.all()
+    return render_template("wbw.html", services=services)
 
 @app.route('/highlight', methods=['POST'])
 def highlight():
@@ -65,6 +65,12 @@ def transcribe():
 @app.route('/EN')
 def EN():
     return render_template("EN.html")
+
 @app.route('/HE')
 def HE():
     return render_template("HE.html")
+
+from websocket import wbw_socket
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)

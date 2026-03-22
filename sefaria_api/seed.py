@@ -5,7 +5,13 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import requests
 import unicodedata
 from app import app, db
-from sefaria_api.prayermodel import PrayerService, PrayerText, Word
+from sefaria_api.prayermodel import (
+    PrayerService, PrayerText,
+    HebrewWord, EnglishWord,
+    HebrewPhrase, EnglishPhrase
+)
+
+PHRASE_ENDINGS = set(".,;:!?׃")
 
 def strip_niqqud(text):
     return ''.join(
@@ -25,7 +31,7 @@ def collect_siddur_refs(index):
             for child in node["nodes"]:
                 traverse(child, path_parts + [node.get("title", "")])
         else:
-            title = node.get("title", "")
+            title    = node.get("title", "")
             he_title = node.get("heTitle", "")
             full_ref = "Siddur Ashkenaz, " + ", ".join(p for p in path_parts if p) + ", " + title
             refs.append({
@@ -49,8 +55,9 @@ def extract_section(path_parts):
 
 def fetch_prayer(ref):
     url = f"https://www.sefaria.org/api/v3/texts/{ref}"
-    params = {"version": "source", "return_format": "text_only"}
-    return requests.get(url, params=params).json()
+    he  = requests.get(url, params={"return_format": "text_only", "version": "source"}).json()
+    en  = requests.get(url, params={"return_format": "text_only", "version": "english"}).json()
+    return he, en
 
 def extract_lines(version):
     text = version["text"]
@@ -66,25 +73,56 @@ def extract_lines(version):
             flat.append(section)
     return flat
 
+def split_into_phrases(lines):
+    phrases = []
+    current = []
+    line_index = 0
+
+    for line_i, line in enumerate(lines):
+        if not line.strip():
+            continue
+        words = line.split()
+        for w_i, word in enumerate(words):
+            current.append(word)
+            if word[-1] in PHRASE_ENDINGS or w_i == len(words) - 1:
+                phrases.append({
+                    "text":       " ".join(current),
+                    "line_index": line_i,
+                })
+                current = []
+        line_index += 1
+
+    if current:
+        phrases.append({
+            "text":       " ".join(current),
+            "line_index": line_index,
+        })
+
+    return phrases
+
 def seed_prayer(ref, en_title, he_title, section, service_id, order):
     if PrayerText.query.filter_by(ref=ref).first():
         print(f"skip (exists): {ref}")
         return
 
-    data = fetch_prayer(ref)
+    he_data, en_data = fetch_prayer(ref)
 
-    if data.get("warnings") or data.get("error"):
+    if he_data.get("warnings") or he_data.get("error"):
         print(f"skip (api error): {ref}")
         return
 
-    versions = data.get("versions", [])
-    hebrew = next((v for v in versions if v.get("isSource")), None)
+    he_versions = he_data.get("versions", [])
+    en_versions = en_data.get("versions", [])
+
+    hebrew  = next((v for v in he_versions if v.get("isSource")), None)
+    english = next((v for v in en_versions if v.get("language") == "en"), None)
 
     if not hebrew:
         print(f"skip (no Hebrew): {ref}")
         return
 
-    lines = extract_lines(hebrew)
+    he_lines = extract_lines(hebrew)
+    en_lines = extract_lines(english) if english else []
 
     prayer = PrayerText(
         name              = en_title or ref,
@@ -98,39 +136,77 @@ def seed_prayer(ref, en_title, he_title, section, service_id, order):
     db.session.add(prayer)
     db.session.flush()
 
-    word_index = 0
-    for line_i, line in enumerate(lines):
-        if not line.strip():
-            continue
-        for word in line.split():
+    he_phrases = split_into_phrases(he_lines)
+    en_phrases = split_into_phrases(en_lines)
+
+    for phrase_index, p in enumerate(he_phrases):
+        db.session.add(HebrewPhrase(
+            prayer_id    = prayer.id,
+            phrase_index = phrase_index,
+            text         = p["text"],
+            line_index   = p["line_index"],
+        ))
+
+    for phrase_index, p in enumerate(en_phrases):
+        db.session.add(EnglishPhrase(
+            prayer_id    = prayer.id,
+            phrase_index = phrase_index,
+            text         = p["text"],
+            line_index   = p["line_index"],
+        ))
+
+    db.session.flush()
+
+    he_word_index  = 0
+    en_word_index  = 0
+
+    for phrase_index, p in enumerate(he_phrases):
+        words = p["text"].split()
+        for word in words:
             stripped = strip_niqqud(word)
             if word == stripped:
                 continue
-            db.session.add(Word(
-                prayer_id     = prayer.id,
-                word_index    = word_index,
-                word_he_vowel = word,
-                word_he       = stripped,
-                line_index    = line_i
+            db.session.add(HebrewWord(
+                prayer_id    = prayer.id,
+                phrase_index = phrase_index,
+                word_index   = he_word_index,
+                word_vowel   = word,
+                word         = stripped,
+                line_index   = p["line_index"],
             ))
-            word_index += 1
+            he_word_index += 1
 
-    if word_index == 0:
+    for phrase_index, p in enumerate(en_phrases):
+        words = p["text"].split()
+        for word in words:
+            db.session.add(EnglishWord(
+                prayer_id    = prayer.id,
+                phrase_index = phrase_index,
+                word_index   = en_word_index,
+                word         = word,
+                line_index   = p["line_index"],
+            ))
+            en_word_index += 1
+
+    if he_word_index == 0:
         db.session.expunge(prayer)
         print(f"skip (no voweled words): {ref}")
         return
 
-    prayer.total_words = word_index
-    db.session.flush()
-
-    last = Word.query.filter_by(
+    last_he = HebrewWord.query.filter_by(
         prayer_id=prayer.id
-    ).order_by(Word.word_index.desc()).first()
-    if last:
-        last.is_last = True
+    ).order_by(HebrewWord.word_index.desc()).first()
+    if last_he:
+        last_he.is_last = True
+
+    last_en = EnglishWord.query.filter_by(
+        prayer_id=prayer.id
+    ).order_by(EnglishWord.word_index.desc()).first()
+    if last_en:
+        last_en.is_last = True
 
     db.session.commit()
-    print(f"seeded: '{en_title}' [{section}] — {word_index} words")
+    print(f"seeded: '{en_title}' [{section}] — {he_word_index} he words, {en_word_index} en words, {len(he_phrases)} he phrases, {len(en_phrases)} en phrases")
 
 
 with app.app_context():
@@ -152,7 +228,7 @@ with app.app_context():
 
     print("fetching Siddur Ashkenaz index...")
     index = get_siddur_index()
-    refs = collect_siddur_refs(index)
+    refs  = collect_siddur_refs(index)
 
     weekday_refs = [r for r in refs if "Weekday" in r["ref"]]
     print(f"found {len(weekday_refs)} weekday sections")
