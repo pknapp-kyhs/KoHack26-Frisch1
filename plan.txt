@@ -15,6 +15,7 @@ Pages:
     Word by Word:
         - List of Prayers
         - WPM dial 
+        - Displayed Text
 
 
     Shiur Transciption:
