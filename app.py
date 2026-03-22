@@ -1,25 +1,24 @@
 from flask import *
-from flask_sqlalchemy import SQLAlchemy
+from extensions import db, socketio
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
-app.secret_key = 'SecretKey'
+app.config['SECRET_KEY'] = 'SecretKey'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+
+db.init_app(app)
+socketio.init_app(app)
 
 from sefaria_api.prayermodel import PrayerService, PrayerText, Word
-
-
+from sefaria_api.texthelperfunctions import get_prayer_text, get_prayer_words
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(80), nullable=False)
 
-
 with app.app_context():
     db.create_all()
-
-from sefaria_api.texthelperfunctions import get_prayer_text
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -75,19 +74,28 @@ def highlight():
 def transcribe():
     return render_template("transcribe.html")
 
-@app.route('/EN')
+@app.route('/EN' , methods=['POST'])
 def EN():
     type = request.form.get('prayerType')
     lang = request.form.get('language')
     prayer = request.form.get('prayer')
-    speed = request.form.get('speed')
-    text = get_prayer_text(type, prayer, lang, speed)
-    return render_template("EN.html", text=text)
-@app.route('/HE')
+    #speed = request.form.get('speed')
+    if request.form.get('index'):
+        index = int(request.form.get('index'))
+    else:
+        index = 10
+    text = get_prayer_words(type, prayer, lang, None)
+    return render_template("EN.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
+@app.route('/HE' , methods=['POST', 'GET'])
 def HE():
-    type = request.form.get('prayerType')
-    lang = request.form.get('language')
-    prayer = request.form.get('prayer')
-    speed = request.form.get('speed')
-    text = get_prayer_text(type, prayer, lang, speed)
-    return render_template("HE.html", text=text)
+    type = "Shacharit"
+    lang = "he"
+    prayer = "Ashrei"
+    index = 10
+    if request.method == 'POST':
+        type = request.form.get('prayerType')
+        lang = request.form.get('language')
+        prayer = request.form.get('prayer')
+        index = int(request.form.get('index'))
+    text = get_prayer_words(type, prayer, lang, None)
+    return render_template("HE.html", text=text, index=index, type=type, lang=lang, prayer=prayer)

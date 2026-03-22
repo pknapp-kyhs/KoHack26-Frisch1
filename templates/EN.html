@@ -6,10 +6,17 @@
     <input type="hidden" id="prayerType" name="prayerType" value="{{ type }}">
     <input type="hidden" id="language" name="language" value="{{ lang }}">
     <input type="hidden" id="prayer" name="prayer" value="{{ prayer }}">
+    <input type="hidden" id="index" name="index" value="{{ index }}">
     <input type="submit" value="Switch to Hebrew">
 </form>
 
 <p>
-    {{ text }}
+    {% for i in range(text|length) %}
+            {% if i == index %}
+            <mark>{{ text[i] }}</mark>
+        {% else %}
+            {{ text[i] }}
+        {% endif %}
+    {% endfor %}
 </p>
 {% endblock %}
