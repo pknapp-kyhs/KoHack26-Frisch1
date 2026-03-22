@@ -10,13 +10,17 @@
                 <option value="maariv">Maariv</option>
                 <option value="ashrei">Ashrei</option>
             </select>
+            <br>
             <label for="speed">Choose speed: <span id="speedValue">50</span></label><br>
             <input type="range" id="speed" name="speed" min="1" max="100" value="50" oninput="document.getElementById('speedValue').textContent = this.value">
+            <br>
             <label for="language">Choose language:</label>
             <select name="language" id="language">
                 <option value="english">English</option>
                 <option value="hebrew">Hebrew</option>
             </select>
+            <br>
+            <input id="prayer" type="text" type="text" required placeholder="prayer">
         <input type="submit" value="Submit">
 
     </form>

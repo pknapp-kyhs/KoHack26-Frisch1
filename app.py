@@ -1,6 +1,5 @@
 from flask import *
 from flask_sqlalchemy import SQLAlchemy
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
 app.secret_key = 'SecretKey'
@@ -19,6 +18,8 @@ class User(db.Model):
 
 with app.app_context():
     db.create_all()
+
+from sefaria_api.texthelperfunctions import get_prayer_text
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -52,8 +53,20 @@ def signup():
 #Reads the prayer word by word
 @app.route('/wbw', methods=['POST', 'GET'])
 def word_by_word():
-    return render_template("wbw.html")
-
+    if request.method == "GET":
+        return render_template("wbw.html")
+    
+    type = request.form.get('prayerType')
+    lang = request.form.get('language')
+    prayer = request.form.get('prayer')
+    speed = request.form.get('speed')
+    
+    if lang == "english":
+        # Add 'return' here
+        return redirect(url_for('EN', prayer=prayer, type=type, speed=speed, lang=lang))
+    else:
+        # And add 'return' here
+        return redirect(url_for('HE', prayer=prayer, type=type, speed=speed, lang=lang))
 @app.route('/highlight', methods=['POST'])
 def highlight():
     return render_template("highlight.html")
@@ -64,7 +77,17 @@ def transcribe():
 
 @app.route('/EN')
 def EN():
-    return render_template("EN.html")
+    type = request.form.get('prayerType')
+    lang = request.form.get('language')
+    prayer = request.form.get('prayer')
+    speed = request.form.get('speed')
+    text = get_prayer_text(type, prayer, lang, speed)
+    return render_template("EN.html", text=text)
 @app.route('/HE')
 def HE():
-    return render_template("HE.html")
+    type = request.form.get('prayerType')
+    lang = request.form.get('language')
+    prayer = request.form.get('prayer')
+    speed = request.form.get('speed')
+    text = get_prayer_text(type, prayer, lang, speed)
+    return render_template("HE.html", text=text)
