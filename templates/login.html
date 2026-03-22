@@ -1,21 +1,14 @@
 {% extends "layout.html" %}
+
 {% block content %}
-  <body>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        {% for message in messages %}
-          <p>{{ message }}</p>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-    <h1>Login</h1>
-    <form action="/login" method="POST">
-      <input type="text" name="username">
-      <br>
-      <input type="password" name="password">
-      <br>
-      <input type="submit">
+    <h1>Sign Up</h1>
+    <form method="post" action="/login">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required><br><br>
+        
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br><br>
+        
+        <button type="submit">Sign Up</button>
     </form>
-    <a href="/signup"><button>Don't have an account? Sign up here.</button></a>
-  </body>
 {% endblock %}

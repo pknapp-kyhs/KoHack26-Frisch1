@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
+
 {% block content %}
-  <body>
     {% with messages = get_flashed_messages() %}
       {% if messages %}
         {% for message in messages %}
@@ -17,5 +17,4 @@
       <input type="submit">
     </form>
     <a href="/login"><button>Already have an account? Login here.</button></a>
-  </body>
 {% endblock %}
