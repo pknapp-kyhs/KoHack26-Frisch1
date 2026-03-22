@@ -9,7 +9,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 socketio.init_app(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, Word
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)

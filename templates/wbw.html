@@ -50,7 +50,7 @@
 </div>
 
 <label>
-  <input type="checkbox" id="manual-mode" onchange="onModeChange()"> Manual mode (next/prev)
+  <input type="checkbox" id="manual-mode" onchange="onModeChange()"> Manual mode
 </label>
 
 <br><br>
@@ -71,7 +71,7 @@
 
 <br><br>
 
-<div id="word-display" style="font-size: 56px; direction: rtl; text-align: center; min-height: 80px; border: 1px solid #ccc; padding: 20px; border-radius: 8px;">—</div>
+<div id="word-display" style="font-size: 56px; text-align: center; min-height: 80px; border: 1px solid #ccc; padding: 20px; border-radius: 8px;">—</div>
 
 <br>
 
@@ -82,44 +82,41 @@
 <script>
   const socket = io();
 
-  const serviceEl  = document.getElementById('service');
-  const prayerEl   = document.getElementById('prayer');
-  const langEl     = document.getElementById('lang');
-  const modeEl     = document.getElementById('mode');
-  const chunkEl    = document.getElementById('chunk-size');
-  const wpmEl      = document.getElementById('wpm');
-  const manualEl   = document.getElementById('manual-mode');
-  const display    = document.getElementById('word-display');
-  const status     = document.getElementById('status');
-  const errMsg     = document.getElementById('error-msg');
-  const btnStart   = document.getElementById('btn-start');
-  const btnStop    = document.getElementById('btn-stop');
-  const btnPause   = document.getElementById('btn-pause');
-  const btnPrev    = document.getElementById('btn-prev');
-  const btnNext    = document.getElementById('btn-next');
+  const serviceEl = document.getElementById('service');
+  const prayerEl  = document.getElementById('prayer');
+  const langEl    = document.getElementById('lang');
+  const modeEl    = document.getElementById('mode');
+  const chunkEl   = document.getElementById('chunk-size');
+  const wpmEl     = document.getElementById('wpm');
+  const manualEl  = document.getElementById('manual-mode');
+  const display   = document.getElementById('word-display');
+  const status    = document.getElementById('status');
+  const errMsg    = document.getElementById('error-msg');
+  const btnStart  = document.getElementById('btn-start');
+  const btnStop   = document.getElementById('btn-stop');
+  const btnPause  = document.getElementById('btn-pause');
+  const btnPrev   = document.getElementById('btn-prev');
+  const btnNext   = document.getElementById('btn-next');
 
-  let timer    = null;
-  let chunks   = [];
-  let idx      = 0;
-  let paused   = false;
-  let delayMs  = 1000;
+  let timer   = null;
+  let chunks  = [];
+  let idx     = 0;
+  let paused  = false;
+  let delayMs = 1000;
 
   function onModeChange() {
     const isManual = manualEl.checked;
     const mode     = modeEl.value;
-
-    document.getElementById('chunk-size-row').style.display = mode === 'chunk' ? '' : 'none';
-    document.getElementById('speed-row').style.display      = isManual ? 'none' : '';
-    document.getElementById('auto-controls').style.display  = isManual ? 'none' : '';
+    document.getElementById('chunk-size-row').style.display  = mode === 'chunk' ? '' : 'none';
+    document.getElementById('speed-row').style.display       = isManual ? 'none' : '';
+    document.getElementById('auto-controls').style.display   = isManual ? 'none' : '';
     document.getElementById('manual-controls').style.display = isManual ? '' : 'none';
   }
 
   onModeChange();
 
-  function buildChunks(words, mode, chunkSize) {
-    if (mode === 'word') {
-      return words.map(w => w);
-    }
+  function buildChunks(words, phrases, mode, chunkSize) {
+    if (mode === 'phrase') return phrases;
     if (mode === 'chunk') {
       const result = [];
       for (let i = 0; i < words.length; i += chunkSize) {
@@ -127,27 +124,18 @@
       }
       return result;
     }
-    if (mode === 'phrase') {
-      const endings = new Set(['.', ',', ';', ':', '!', '?']);
-      const result  = [];
-      let current   = [];
-      for (const w of words) {
-        current.push(w);
-        if (endings.has(w[w.length - 1])) {
-          result.push(current.join(' '));
-          current = [];
-        }
-      }
-      if (current.length) result.push(current.join(' '));
-      return result;
-    }
     return words;
+  }
+
+  function isHebrew(lang) {
+    return lang === 'vowel' || lang === 'he';
   }
 
   function showChunk(i) {
     if (i < 0 || i >= chunks.length) return;
-    display.textContent = chunks[i];
-    status.textContent  = `${i + 1} / ${chunks.length}`;
+    display.style.direction = isHebrew(langEl.value) ? 'rtl' : 'ltr';
+    display.textContent     = chunks[i];
+    status.textContent      = `${i + 1} / ${chunks.length}`;
   }
 
   function startAuto() {
@@ -178,12 +166,12 @@
       .join('');
   });
 
-  socket.on('wbw_ready', ({ words, delay_ms }) => {
+  socket.on('wbw_ready', ({ words, phrases, delay_ms }) => {
     errMsg.textContent = '';
     delayMs = delay_ms;
     const mode      = modeEl.value;
     const chunkSize = parseInt(chunkEl.value) || 3;
-    chunks = buildChunks(words, mode, chunkSize);
+    chunks = buildChunks(words, phrases, mode, chunkSize);
     idx    = 0;
 
     const isManual = manualEl.checked;
@@ -243,13 +231,12 @@
   function reset() {
     clearInterval(timer);
     paused = false;
-    btnStart.disabled = true;
+    btnStart.disabled = false;
     btnStop.disabled  = true;
     btnPause.disabled = true;
     btnPause.textContent = 'Pause';
     btnPrev.disabled  = true;
     btnNext.disabled  = true;
-    btnStart.disabled = false;
   }
 
   loadPrayers();
