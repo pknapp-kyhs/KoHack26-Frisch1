@@ -1,5 +1,4 @@
-from app import db
-
+from extensions import db
 class PrayerService(db.Model):
     id           = db.Column(db.Integer, primary_key=True)
     name_en      = db.Column(db.String(), nullable=False)
