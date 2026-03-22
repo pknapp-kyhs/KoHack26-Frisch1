@@ -8,25 +8,27 @@
                 <option value="shacharit">Shacharit</option>
                 <option value="mincha">Mincha</option>
                 <option value="maariv">Maariv</option>
-                <option value="ashrei">Musaf</option>
+                <option value="ashrei">Ashrei</option>
             </select>
-        <input type="submit" value="Submit">
-    </form>
-
-    <form method="post" action="/wbw">
-        <label for="speed">Choose speed: <span id="speedValue">50</span></label><br>
-        <input type="range" id="speed" name="speed" min="1" max="100" value="50" oninput="document.getElementById('speedValue').textContent = this.value">
-        <button type="submit">Submit</button>
-    </form>
-
-    <form method="post" action="/wbw">
-        <label for="language">Choose language:</label>
+            <label for="speed">Choose speed: <span id="speedValue">50</span></label><br>
+            <input type="range" id="speed" name="speed" min="1" max="100" value="50" oninput="document.getElementById('speedValue').textContent = this.value">
+            <label for="language">Choose language:</label>
             <select name="language" id="language">
                 <option value="english">English</option>
                 <option value="hebrew">Hebrew</option>
             </select>
         <input type="submit" value="Submit">
+
     </form>
+
+    <br>
+
+    {% if text %}
+        <h2>Prayer Text:</h2>
+        <p>{{ text }}</p>
+    {% else %}
+        <p>No prayer text selected.</p>
+    {% endif %}
     <br>
     <button onclick="window.location.href='/'">Home</button>
 
