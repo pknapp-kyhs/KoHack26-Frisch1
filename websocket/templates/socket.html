@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WEB SOCKET</title>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  </head>
+  <body>
+    <input id="data_to_send" type="text" placeholder="Send Data" />
+    <button onclick="sendData()">Send</button>
+
+    <script>
+      const socket = io();
+      function sendData() {
+        const value = document.getElementById("data_to_send").value;
+        socket.emit("sent_data", { message: value });
+      }
+    </script>
+  </body>
+</html>
