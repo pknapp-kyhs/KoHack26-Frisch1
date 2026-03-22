@@ -70,6 +70,43 @@ def EN():
 def HE():
     return render_template("HE.html")
 
+@app.route('/siddur', methods=['GET', 'POST'])
+def siddur():
+    services        = PrayerService.query.all()
+    selected_service = request.form.get('service', 'Shacharit')
+    selected_prayer  = request.form.get('prayer', '')
+    selected_lang    = request.form.get('lang', 'vowel')
+
+    service = PrayerService.query.filter_by(name_en=selected_service).first()
+    prayers = service.prayer_texts if service else []
+
+    text   = ""
+    prayer = None
+
+    if selected_prayer and service:
+        prayer = PrayerText.query.filter(
+            PrayerText.prayer_service_id == service.id,
+            PrayerText.en_title == selected_prayer
+        ).first()
+
+        if prayer:
+            if selected_lang == 'en':
+                text = " ".join(w.word for w in prayer.english_words if w.word)
+            elif selected_lang == 'vowel':
+                text = " ".join(w.word_vowel for w in prayer.hebrew_words if w.word_vowel)
+            else:
+                text = " ".join(w.word for w in prayer.hebrew_words if w.word)
+
+    return render_template('siddur.html',
+        services         = services,
+        prayers          = prayers,
+        selected_service = selected_service,
+        selected_prayer  = selected_prayer,
+        selected_lang    = selected_lang,
+        text             = text,
+        prayer           = prayer,
+    )
+
 from websocket import wbw_socket
 
 if __name__ == '__main__':
