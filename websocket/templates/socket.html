@@ -1,149 +1,181 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Live Audio Streaming</title>
-    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
-  </head>
-  <body>
-    <h1>Live Audio Streaming</h1>
-    <div id="status"></div>
-    <div
-      id="transcriptions"
-      style="
-        padding: 20px;
-        background: #f5f5f5;
-        min-height: 100px;
-        border-radius: 8px;
-        font-size: 18px;
-        line-height: 1.6;
-      "
-    ></div>
 
-    <script>
-      const socket = io();
-      let mediaRecorder,
-        recordingSessionId,
-        audioContext,
-        scriptProcessor,
-        microphone,
-        audioData = [];
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Transcription with Vosk</title>
+  <!-- Import the Socket.IO client library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
 
-      function showStatus(msg, type) {
-        const el = document.getElementById("status");
-        el.textContent = msg;
-        el.className = type;
-        el.style.display = "block";
+    #transcriptionBox {
+      border: 1px solid #ccc;
+      height: 300px;
+      padding: 10px;
+      overflow-y: scroll;
+      margin-top: 20px;
+      background: #f9f9f9;
+      white-space: pre-wrap;
+      /* Allows text to wrap */
+    }
+
+    button {
+      font-size: 1.2rem;
+      padding: 10px;
+      margin-right: 10px;
+    }
+
+    #status {
+      margin-top: 15px;
+      color: #555;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Local Transcription (Vosk)</h1>
+  <button id="startBtn">Start Microphone</button>
+  <button id="stopBtn" disabled>Stop</button>
+  <div id="status">Status: Not connected</div>
+
+  <div id="transcriptionBox"></div>
+
+  <script>
+    // 1. Initialize global variables
+    const socket = io();
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const transcriptionBox = document.getElementById('transcriptionBox');
+    const statusDiv = document.getElementById('status');
+
+    const VOSK_SAMPLE_RATE = 16000;
+    let audioContext;
+    let scriptProcessor;
+    let micStream;
+
+    // 2. Set up WebSocket listeners
+    socket.on('connect', () => {
+      statusDiv.textContent = 'Status: Connected. Press "Start" to record.';
+    });
+
+    socket.on('disconnect', () => {
+      statusDiv.textContent = 'Status: Disconnected.';
+      stopRecording();
+    });
+
+    socket.on('transcription_result', function (data) {
+      transcriptionBox.innerHTML += data.text;
+      transcriptionBox.scrollTop = transcriptionBox.scrollHeight; // Auto-scroll
+    });
+
+    // 3. Start Recording Logic
+    startBtn.onclick = async () => {
+      try {
+        // Initialize Web Audio API components
+        window.AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioContext = new AudioContext();
+
+        // Get microphone stream
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        statusDiv.textContent = `Status: Recording (Source Rate: ${audioContext.sampleRate}Hz)`;
+
+        const source = audioContext.createMediaStreamSource(micStream);
+        const bufferSize = 4096; // A common buffer size
+
+        // Create a ScriptProcessorNode for direct audio processing
+        scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+
+        // --- CORE LOGIC: Process and Resample Audio ---
+        scriptProcessor.onaudioprocess = (event) => {
+          const inputData = event.inputBuffer.getChannelData(0);
+          // This function resamples the audio and sends it to the backend
+          const resampledData = resampleBuffer(inputData, audioContext.sampleRate, VOSK_SAMPLE_RATE);
+          // The backend expects raw Int16 bytes
+          socket.emit('audio_stream', convertTo16BitPCM(resampledData));
+        };
+
+        // Connect the audio graph: Mic -> Processor -> Destination (to start processing)
+        source.connect(scriptProcessor);
+        scriptProcessor.connect(audioContext.destination);
+
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+      } catch (err) {
+        console.error("Error getting microphone:", err);
+        statusDiv.textContent = `Error: ${err.message}. Please allow microphone access.`;
       }
+    };
 
-      function encodeWAV(samples, sampleRate) {
-        const buffer = new ArrayBuffer(44 + samples.length * 2);
-        const view = new DataView(buffer);
-
-        function writeString(offset, string) {
-          for (let i = 0; i < string.length; i++) {
-            view.setUint8(offset + i, string.charCodeAt(i));
-          }
-        }
-
-        const bytesPerSample = 2;
-        const blockAlign = 1 * bytesPerSample;
-
-        writeString(0, "RIFF");
-        view.setUint32(4, 36 + samples.length * 2, true);
-        writeString(8, "WAVE");
-        writeString(12, "fmt ");
-        view.setUint32(16, 16, true);
-        view.setUint16(20, 1, true);
-        view.setUint16(22, 1, true);
-        view.setUint32(24, sampleRate, true);
-        view.setUint32(28, sampleRate * 2, true);
-        view.setUint16(32, blockAlign, true);
-        view.setUint16(34, 16, true);
-        writeString(36, "data");
-        view.setUint32(40, samples.length * 2, true);
-
-        let offset = 44;
-        for (let i = 0; i < samples.length; i++, offset += 2) {
-          const s = Math.max(-1, Math.min(1, samples[i]));
-          view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-        }
-
-        return buffer;
+    // 4. Stop Recording Logic
+    const stopRecording = () => {
+      if (micStream) {
+        // Stop all tracks on the microphone stream to turn off the browser's recording light
+        micStream.getTracks().forEach(track => track.stop());
       }
-
-      async function startRecording() {
-        try {
-          audioData = [];
-          const stream = await navigator.mediaDevices.getUserMedia({
-            audio: true,
-          });
-          audioContext = new (
-            window.AudioContext || window.webkitAudioContext
-          )();
-          microphone = audioContext.createMediaStreamSource(stream);
-          scriptProcessor = audioContext.createScriptProcessor(4096, 1, 1);
-
-          scriptProcessor.onaudioprocess = (e) => {
-            const samples = e.inputBuffer.getChannelData(0);
-            audioData.push(...samples);
-          };
-
-          microphone.connect(scriptProcessor);
-          scriptProcessor.connect(audioContext.destination);
-
-          recordingSessionId = `session_${Date.now()}`;
-          socket.emit("audio_session_start", { sessionId: recordingSessionId });
-
-          showStatus("Recording...", "info");
-
-          // Auto-stop after 1.5 seconds
-          setTimeout(stopRecording, 1500);
-        } catch (error) {
-          showStatus("Microphone access denied", "error");
-        }
+      if (scriptProcessor) {
+        scriptProcessor.disconnect();
       }
-
-      function stopRecording() {
-        if (scriptProcessor) {
-          scriptProcessor.disconnect();
-          microphone.disconnect();
-          audioContext.close();
-
-          const sampleRate = audioContext.sampleRate;
-          const wavBuffer = encodeWAV(audioData, sampleRate);
-          const blob = new Blob([wavBuffer], { type: "audio/wav" });
-          const reader = new FileReader();
-
-          reader.onload = () => {
-            socket.emit("audio_chunk", {
-              sessionId: recordingSessionId,
-              chunk: reader.result.split(",")[1],
-            });
-            socket.emit("audio_session_end", { sessionId: recordingSessionId });
-            // Immediately start next recording (overlap with transcription)
-            startRecording();
-          };
-
-          reader.readAsDataURL(blob);
-          showStatus("Processing...", "info");
-        }
+      if (audioContext) {
+        audioContext.close();
       }
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      statusDiv.textContent = 'Status: Stopped. Press "Start" to record again.';
+    };
+    stopBtn.onclick = stopRecording;
 
-      socket.on("audio_saved", (data) => {
-        const transDiv = document.getElementById("transcriptions");
-        transDiv.textContent += data.transcription + " ";
-        transDiv.scrollTop = transDiv.scrollHeight;
-        // Transcription completed asynchronously, no need to restart recording
-      });
 
-      socket.on("error_message", (data) => {
-        showStatus(`Error: ${data.message}`, "error");
-      });
+    // --- UTILITY FUNCTIONS ---
 
-      // Auto-start on page load
-      window.addEventListener("load", startRecording);
-    </script>
-  </body>
+    /**
+     * Resamples a Float32Array buffer from a source sample rate to a target sample rate.
+     */
+    function resampleBuffer(inputBuffer, fromSampleRate, toSampleRate) {
+      if (fromSampleRate === toSampleRate) {
+        return inputBuffer;
+      }
+      const sampleRateRatio = fromSampleRate / toSampleRate;
+      const newLength = Math.round(inputBuffer.length / sampleRateRatio);
+      const result = new Float32Array(newLength);
+      let offsetResult = 0;
+      let offsetBuffer = 0;
+      while (offsetResult < result.length) {
+        const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+        let accum = 0, count = 0;
+        for (let i = offsetBuffer; i < nextOffsetBuffer && i < inputBuffer.length; i++) {
+          accum += inputBuffer[i];
+          count++;
+        }
+        result[offsetResult] = accum / count;
+        offsetResult++;
+        offsetBuffer = nextOffsetBuffer;
+      }
+      return result;
+    }
+
+    /**
+     * Converts a Float32Array of audio samples to a 16-bit PCM ArrayBuffer.
+     * Vosk expects data in this format.
+     */
+    function convertTo16BitPCM(input) {
+      const buffer = new ArrayBuffer(input.length * 2); // 2 bytes per sample
+      const view = new DataView(buffer);
+      for (let i = 0; i < input.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[i]));
+        // Convert to 16-bit integer
+        view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      }
+      return buffer;
+    }
+
+  </script>
+</body>
+
 </html>

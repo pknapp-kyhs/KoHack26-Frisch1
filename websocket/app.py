@@ -1,96 +1,68 @@
-from flask import *
-from flask_socketio import *
-import base64
-import speech_recognition as sr
 import os
-from concurrent.futures import ThreadPoolExecutor
-import io
-import threading
+import json
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO
+from vosk import Model, KaldiRecognizer
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = "abc"
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-socketio = SocketIO(app)
+# 1. Load the Vosk model ONCE when the server starts
+# Make sure you have a folder named "model" in your project directory
+model_path = "model" 
+if not os.path.exists(model_path):
+    print(f"Model not found at {model_path}. Please download and unpack a Vosk model.")
+    exit(1)
 
-executor = ThreadPoolExecutor(max_workers=10)
+model = Model(model_path)
 
-sessions = {}
-
-
-def transcribe_audio_chunk(audio_data):
-    """Transcribe audio chunk from bytes data"""
-    try:
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(io.BytesIO(audio_data)) as source:
-            audio = recognizer.record(source)
-        text = recognizer.recognize_google(audio)
-        return text
-    except sr.UnknownValueError:
-        return None
-    except sr.RequestError as e:
-        print(f"Transcription API Error: {e}")
-        return None
-
+# Dictionary to hold a recognizer for each connected user
+recognizers = {}
 
 @app.route('/')
 def index():
-    return render_template('socket.html')
+    return render_template('index.html')
 
+@socketio.on('connect')
+def handle_connect():
+    sid = request.sid
+    print(f"User connected: {sid}")
+    # 2. Create a new recognizer for this user
+    # The sample rate (16000) must match the audio from the frontend
+    recognizers[sid] = KaldiRecognizer(model, 16000)
 
-@socketio.on('audio_session_start')
-def handle_session_start(data):
-    """Start a continuous audio streaming session"""
-    session_id = data['sessionId']
-    sessions[session_id] = {
-        'audio_buffer': b'',
-        'lock': threading.Lock()
-    }
-    print(f"[SESSION START] {session_id}")
+@socketio.on('audio_stream')
+def handle_audio_stream(audio_chunk):
+    sid = request.sid
+    recognizer = recognizers.get(sid)
 
-
-@socketio.on('audio_chunk')
-def handle_audio_chunk(data):
-    """Receive continuous audio chunks and transcribe in background"""
-    session_id = data['sessionId']
-    chunk_data = data['chunk']
-    
-    if session_id not in sessions:
+    if not recognizer:
         return
-    
-    try:
-        # Decode chunk
-        decoded_chunk = base64.b64decode(chunk_data)
-        
-        with sessions[session_id]['lock']:
-            sessions[session_id]['audio_buffer'] += decoded_chunk
-        
-        # Check if buffer is large enough to transcribe (e.g., 2+ seconds of audio)
-        # 16kHz * 2 bytes per sample * 2 seconds = ~64KB minimum
-        if len(sessions[session_id]['audio_buffer']) >= 65536:
-            with sessions[session_id]['lock']:
-                audio_to_transcribe = sessions[session_id]['audio_buffer']
-                sessions[session_id]['audio_buffer'] = b''
-            
-            # Transcribe in background without blocking
-            def transcribe_background():
-                text = transcribe_audio_chunk(audio_to_transcribe)
-                if text:
-                    print(f"[TRANSCRIBED] {text}")
-            
-            executor.submit(transcribe_background)
-            
-    except Exception as e:
-        print(f"Error handling audio chunk: {e}")
 
+    # 3. Feed the audio chunk into the recognizer
+    if recognizer.AcceptWaveform(audio_chunk):
+        # User has likely paused. Get the final result.
+        result_json = recognizer.Result()
+        result_text = json.loads(result_json).get("text", "")
+        if result_text:
+            print(f"Final result for {sid}: {result_text}")
+            socketio.emit('transcription_result', {'text': result_text + " "}, to=sid)
+    else:
+        # User is still speaking. Get a partial result.
+        partial_json = recognizer.PartialResult()
+        partial_text = json.loads(partial_json).get("partial", "")
+        if partial_text:
+            # You can optionally send these back for an "as-you-type" experience
+            print(f"Partial result for {sid}: {partial_text}")
+            pass
 
-@socketio.on('audio_session_end')
-def handle_session_end(data):
-    """End the streaming session (if needed)"""
-    session_id = data['sessionId']
-    if session_id in sessions:
-        del sessions[session_id]
-        print(f"[SESSION END] {session_id}")
-
+@socketio.on('disconnect')
+def handle_disconnect():
+    sid = request.sid
+    print(f"User disconnected: {sid}")
+    # 4. Clean up the recognizer for the disconnected user
+    if sid in recognizers:
+        del recognizers[sid]
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True, port=5001)
+    socketio.run(app, debug=True, port=5000)
