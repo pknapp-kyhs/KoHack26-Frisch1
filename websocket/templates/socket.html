@@ -1,181 +1,236 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Transcription with Vosk</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Transcription with Vosk</title>
-  <!-- Import the Socket.IO client library -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-  <style>
-    body {
-      font-family: sans-serif;
-      padding: 20px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
+      #transcriptionBox {
+        border: 1px solid #ccc;
+        height: 300px;
+        padding: 10px;
+        overflow-y: auto;
+        margin-top: 20px;
+        background: #f9f9f9;
+        white-space: pre-wrap;
+      }
 
-    #transcriptionBox {
-      border: 1px solid #ccc;
-      height: 300px;
-      padding: 10px;
-      overflow-y: scroll;
-      margin-top: 20px;
-      background: #f9f9f9;
-      white-space: pre-wrap;
-      /* Allows text to wrap */
-    }
+      button {
+        font-size: 1.1rem;
+        padding: 10px 16px;
+        margin-right: 10px;
+        cursor: pointer;
+      }
 
-    button {
-      font-size: 1.2rem;
-      padding: 10px;
-      margin-right: 10px;
-    }
+      #status {
+        margin-top: 15px;
+        color: #555;
+      }
 
-    #status {
-      margin-top: 15px;
-      color: #555;
-    }
-  </style>
-</head>
+      #partialBox {
+        margin-top: 10px;
+        color: #666;
+        font-style: italic;
+        min-height: 24px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Local Transcription (Vosk)</h1>
+    <button id="startBtn">Start Microphone</button>
+    <button id="stopBtn" disabled>Stop</button>
 
-<body>
-  <h1>Local Transcription (Vosk)</h1>
-  <button id="startBtn">Start Microphone</button>
-  <button id="stopBtn" disabled>Stop</button>
-  <div id="status">Status: Not connected</div>
+    <div id="status">Status: Connecting...</div>
+    <div id="partialBox"></div>
+    <div id="transcriptionBox"></div>
 
-  <div id="transcriptionBox"></div>
+    <script>
+      const socket = io();
 
-  <script>
-    // 1. Initialize global variables
-    const socket = io();
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    const transcriptionBox = document.getElementById('transcriptionBox');
-    const statusDiv = document.getElementById('status');
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const transcriptionBox = document.getElementById("transcriptionBox");
+      const statusDiv = document.getElementById("status");
+      const partialBox = document.getElementById("partialBox");
 
-    const VOSK_SAMPLE_RATE = 16000;
-    let audioContext;
-    let scriptProcessor;
-    let micStream;
+      const TARGET_SAMPLE_RATE = 16000;
 
-    // 2. Set up WebSocket listeners
-    socket.on('connect', () => {
-      statusDiv.textContent = 'Status: Connected. Press "Start" to record.';
-    });
+      let audioContext = null;
+      let processor = null;
+      let source = null;
+      let micStream = null;
+      let isRecording = false;
 
-    socket.on('disconnect', () => {
-      statusDiv.textContent = 'Status: Disconnected.';
-      stopRecording();
-    });
+      socket.on("connect", () => {
+        statusDiv.textContent = "Status: Connected. Press Start Microphone.";
+      });
 
-    socket.on('transcription_result', function (data) {
-      transcriptionBox.innerHTML += data.text;
-      transcriptionBox.scrollTop = transcriptionBox.scrollHeight; // Auto-scroll
-    });
+      socket.on("disconnect", () => {
+        statusDiv.textContent = "Status: Disconnected from server.";
+        stopRecording();
+      });
 
-    // 3. Start Recording Logic
-    startBtn.onclick = async () => {
-      try {
-        // Initialize Web Audio API components
-        window.AudioContext = window.AudioContext || window.webkitAudioContext;
-        audioContext = new AudioContext();
+      socket.on("transcription_result", (data) => {
+        transcriptionBox.textContent += data.text;
+        transcriptionBox.scrollTop = transcriptionBox.scrollHeight;
+        partialBox.textContent = "";
+      });
 
-        // Get microphone stream
-        micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-        statusDiv.textContent = `Status: Recording (Source Rate: ${audioContext.sampleRate}Hz)`;
+      socket.on("partial_transcription", (data) => {
+        partialBox.textContent = data.text;
+      });
 
-        const source = audioContext.createMediaStreamSource(micStream);
-        const bufferSize = 4096; // A common buffer size
+      startBtn.addEventListener("click", async () => {
+        try {
+          await startRecording();
+        } catch (err) {
+          console.error(err);
+          statusDiv.textContent = `Error: ${err.message}`;
+          stopRecording();
+        }
+      });
 
-        // Create a ScriptProcessorNode for direct audio processing
-        scriptProcessor = audioContext.createScriptProcessor(bufferSize, 1, 1);
+      stopBtn.addEventListener("click", () => {
+        stopRecording();
+      });
 
-        // --- CORE LOGIC: Process and Resample Audio ---
-        scriptProcessor.onaudioprocess = (event) => {
+      async function startRecording() {
+        if (isRecording) return;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("getUserMedia is not supported in this browser.");
+        }
+
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+          video: false,
+        });
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioContext.createMediaStreamSource(micStream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+        processor.onaudioprocess = (event) => {
+          if (!isRecording) return;
+
           const inputData = event.inputBuffer.getChannelData(0);
-          // This function resamples the audio and sends it to the backend
-          const resampledData = resampleBuffer(inputData, audioContext.sampleRate, VOSK_SAMPLE_RATE);
-          // The backend expects raw Int16 bytes
-          socket.emit('audio_stream', convertTo16BitPCM(resampledData));
+          const downsampled = downsampleBuffer(
+            inputData,
+            audioContext.sampleRate,
+            TARGET_SAMPLE_RATE,
+          );
+
+          const pcm16 = convertFloat32ToInt16(downsampled);
+          socket.emit("audio_stream", pcm16.buffer);
         };
 
-        // Connect the audio graph: Mic -> Processor -> Destination (to start processing)
-        source.connect(scriptProcessor);
-        scriptProcessor.connect(audioContext.destination);
+        source.connect(processor);
+        processor.connect(audioContext.destination);
 
+        isRecording = true;
         startBtn.disabled = true;
         stopBtn.disabled = false;
-      } catch (err) {
-        console.error("Error getting microphone:", err);
-        statusDiv.textContent = `Error: ${err.message}. Please allow microphone access.`;
+        statusDiv.textContent = `Status: Recording at source rate ${audioContext.sampleRate}Hz`;
       }
-    };
 
-    // 4. Stop Recording Logic
-    const stopRecording = () => {
-      if (micStream) {
-        // Stop all tracks on the microphone stream to turn off the browser's recording light
-        micStream.getTracks().forEach(track => track.stop());
-      }
-      if (scriptProcessor) {
-        scriptProcessor.disconnect();
-      }
-      if (audioContext) {
-        audioContext.close();
-      }
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-      statusDiv.textContent = 'Status: Stopped. Press "Start" to record again.';
-    };
-    stopBtn.onclick = stopRecording;
+      function stopRecording() {
+        isRecording = false;
 
-
-    // --- UTILITY FUNCTIONS ---
-
-    /**
-     * Resamples a Float32Array buffer from a source sample rate to a target sample rate.
-     */
-    function resampleBuffer(inputBuffer, fromSampleRate, toSampleRate) {
-      if (fromSampleRate === toSampleRate) {
-        return inputBuffer;
-      }
-      const sampleRateRatio = fromSampleRate / toSampleRate;
-      const newLength = Math.round(inputBuffer.length / sampleRateRatio);
-      const result = new Float32Array(newLength);
-      let offsetResult = 0;
-      let offsetBuffer = 0;
-      while (offsetResult < result.length) {
-        const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
-        let accum = 0, count = 0;
-        for (let i = offsetBuffer; i < nextOffsetBuffer && i < inputBuffer.length; i++) {
-          accum += inputBuffer[i];
-          count++;
+        if (processor) {
+          processor.disconnect();
+          processor.onaudioprocess = null;
+          processor = null;
         }
-        result[offsetResult] = accum / count;
-        offsetResult++;
-        offsetBuffer = nextOffsetBuffer;
+
+        if (source) {
+          source.disconnect();
+          source = null;
+        }
+
+        if (micStream) {
+          micStream.getTracks().forEach((track) => track.stop());
+          micStream = null;
+        }
+
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        partialBox.textContent = "";
+        statusDiv.textContent = socket.connected
+          ? "Status: Stopped. Press Start Microphone."
+          : "Status: Disconnected from server.";
       }
-      return result;
-    }
 
-    /**
-     * Converts a Float32Array of audio samples to a 16-bit PCM ArrayBuffer.
-     * Vosk expects data in this format.
-     */
-    function convertTo16BitPCM(input) {
-      const buffer = new ArrayBuffer(input.length * 2); // 2 bytes per sample
-      const view = new DataView(buffer);
-      for (let i = 0; i < input.length; i++) {
-        const s = Math.max(-1, Math.min(1, input[i]));
-        // Convert to 16-bit integer
-        view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      function downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
+        if (outputSampleRate === inputSampleRate) {
+          return buffer;
+        }
+
+        if (outputSampleRate > inputSampleRate) {
+          throw new Error(
+            "Output sample rate must be less than input sample rate.",
+          );
+        }
+
+        const sampleRateRatio = inputSampleRate / outputSampleRate;
+        const newLength = Math.round(buffer.length / sampleRateRatio);
+        const result = new Float32Array(newLength);
+
+        let offsetResult = 0;
+        let offsetBuffer = 0;
+
+        while (offsetResult < result.length) {
+          const nextOffsetBuffer = Math.round(
+            (offsetResult + 1) * sampleRateRatio,
+          );
+          let accum = 0;
+          let count = 0;
+
+          for (
+            let i = offsetBuffer;
+            i < nextOffsetBuffer && i < buffer.length;
+            i++
+          ) {
+            accum += buffer[i];
+            count++;
+          }
+
+          result[offsetResult] = count > 0 ? accum / count : 0;
+          offsetResult++;
+          offsetBuffer = nextOffsetBuffer;
+        }
+
+        return result;
       }
-      return buffer;
-    }
 
-  </script>
-</body>
+      function convertFloat32ToInt16(buffer) {
+        const l = buffer.length;
+        const result = new Int16Array(l);
 
+        for (let i = 0; i < l; i++) {
+          let s = Math.max(-1, Math.min(1, buffer[i]));
+          result[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+
+        return result;
+      }
+    </script>
+  </body>
 </html>
