@@ -48,3 +48,9 @@ def signup():
         session['username'] = username
         return redirect(url_for('index'))
     return render_template("signup.html")
+@app.route('/EN')
+def EN():
+    return render_template("EN.html")
+@app.route('/HE')
+def HE():
+    return render_template("HE.html")
