@@ -1,4 +1,6 @@
 # KoHack26-Frisch1
 
-# VENV
-to activate: source venv/bin/activate
+# Dowload Reqs
+```bash 
+pip3 install -r requirements.txt
+```
