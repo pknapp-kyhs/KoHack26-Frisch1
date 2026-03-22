@@ -4,55 +4,64 @@
 
 <h1>Word by Word Prayer</h1>
 
-<label for="service">Service:</label>
-<select id="service">
-  {% for s in services %}
-    <option value="{{ s.name_en }}">{{ s.name_en }}</option>
-  {% endfor %}
-</select>
+<button onclick="toggleSettings()">Settings</button>
 
 <br><br>
 
-<label for="prayer">Prayer:</label>
-<select id="prayer"></select>
+<div id="settings-panel" style="display:none">
 
-<br><br>
+  <label for="service">Service:</label>
+  <select id="service">
+    {% for s in services %}
+      <option value="{{ s.name_en }}">{{ s.name_en }}</option>
+    {% endfor %}
+  </select>
 
-<label for="lang">Language:</label>
-<select id="lang">
-  <option value="vowel">Hebrew (voweled)</option>
-  <option value="he">Hebrew (plain)</option>
-  <option value="en">English</option>
-</select>
-
-<br><br>
-
-<label for="mode">Display mode:</label>
-<select id="mode" onchange="onModeChange()">
-  <option value="word">Word by word</option>
-  <option value="chunk">N words at a time</option>
-  <option value="phrase">Phrase by phrase</option>
-</select>
-
-<br><br>
-
-<div id="chunk-size-row">
-  <label for="chunk-size">Words per chunk:</label>
-  <input type="number" id="chunk-size" value="3" min="1" max="20" style="width:60px">
   <br><br>
-</div>
 
-<div id="speed-row">
-  <label for="wpm">Speed: <strong><span id="wpm-label">60</span> WPM</strong></label><br>
-  <input type="range" id="wpm" min="10" max="300" value="60">
+  <label for="prayer">Prayer:</label>
+  <select id="prayer"></select>
+
   <br><br>
+
+  <label for="lang">Language:</label>
+  <select id="lang">
+    <option value="vowel">Hebrew (voweled)</option>
+    <option value="he">Hebrew (plain)</option>
+    <option value="en">English</option>
+  </select>
+
+  <br><br>
+
+  <label for="mode">Display mode:</label>
+  <select id="mode" onchange="onModeChange()">
+    <option value="word">Word by word</option>
+    <option value="chunk">N words at a time</option>
+    <option value="phrase">Phrase by phrase</option>
+  </select>
+
+  <br><br>
+
+  <div id="chunk-size-row" style="display:none">
+    <label for="chunk-size">Words per chunk:</label>
+    <input type="number" id="chunk-size" value="3" min="1" max="20" style="width:60px">
+    <br><br>
+  </div>
+
+  <label>
+    <input type="checkbox" id="manual-mode" onchange="onModeChange()"> Manual mode
+  </label>
+
+  <br><br>
+
+  <div id="speed-row">
+    <label for="wpm">Speed: <strong><span id="wpm-label">60</span> WPM</strong></label><br>
+    <input type="range" id="wpm" min="10" max="300" value="60">
+  </div>
+
+  <br>
+
 </div>
-
-<label>
-  <input type="checkbox" id="manual-mode" onchange="onModeChange()"> Manual mode
-</label>
-
-<br><br>
 
 <button id="btn-start">Start</button>
 <button id="btn-stop" disabled>Stop</button>
@@ -70,12 +79,12 @@
 
 <br><br>
 
-<div id="word-display" style="font-size: 56px; text-align: center; min-height: 80px; border: 1px solid #ccc; padding: 20px; border-radius: 8px;">—</div>
+<div id="word-display" style="font-size: 56px; text-align: center; min-height: 80px;">—</div>
 
 <br>
 
-<div id="status" style="text-align: center; color: gray;"></div>
-<div id="error-msg" style="color: red; text-align: center;"></div>
+<div id="status" style="text-align: center;"></div>
+<div id="error-msg" style="color: red;"></div>
 
 <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
 <script>
@@ -102,6 +111,11 @@
   let idx     = 0;
   let paused  = false;
   let running = false;
+
+  function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  }
 
   function getDelayMs() {
     return Math.round((60 / parseInt(wpmEl.value)) * 1000);
@@ -183,6 +197,8 @@
     const chunkSize = parseInt(chunkEl.value) || 3;
     chunks = buildChunks(words, phrases, mode, chunkSize);
     idx    = 0;
+
+    document.getElementById('settings-panel').style.display = 'none';
 
     if (manualEl.checked) {
       showChunk(0);
