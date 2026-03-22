@@ -16,6 +16,8 @@ class PrayerText(db.Model):
     section           = db.Column(db.String())
     en_title          = db.Column(db.String())
     he_title          = db.Column(db.String())
+    lines             = db.relationship("Line", backref="prayer_text",
+                            order_by="Line.line_index")
     hebrew_words      = db.relationship("HebrewWord", backref="prayer_text",
                             order_by="HebrewWord.word_index")
     english_words     = db.relationship("EnglishWord", backref="prayer_text",
@@ -24,6 +26,13 @@ class PrayerText(db.Model):
                             order_by="HebrewPhrase.phrase_index")
     english_phrases   = db.relationship("EnglishPhrase", backref="prayer_text",
                             order_by="EnglishPhrase.phrase_index")
+
+class Line(db.Model):
+    id         = db.Column(db.Integer, primary_key=True)
+    prayer_id  = db.Column(db.Integer, db.ForeignKey("prayer_text.id"), nullable=False)
+    line_index = db.Column(db.Integer, nullable=False, index=True)
+    he_text    = db.Column(db.String())
+    en_text    = db.Column(db.String())
 
 class HebrewWord(db.Model):
     id            = db.Column(db.Integer, primary_key=True)

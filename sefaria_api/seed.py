@@ -6,7 +6,7 @@ import requests
 import unicodedata
 from app import app, db
 from sefaria_api.prayermodel import (
-    PrayerService, PrayerText,
+    PrayerService, PrayerText, Line,
     HebrewWord, EnglishWord,
     HebrewPhrase, EnglishPhrase
 )
@@ -76,7 +76,6 @@ def extract_lines(version):
 def split_into_phrases(lines):
     phrases = []
     current = []
-    line_index = 0
 
     for line_i, line in enumerate(lines):
         if not line.strip():
@@ -90,12 +89,11 @@ def split_into_phrases(lines):
                     "line_index": line_i,
                 })
                 current = []
-        line_index += 1
 
     if current:
         phrases.append({
             "text":       " ".join(current),
-            "line_index": line_index,
+            "line_index": len(lines) - 1,
         })
 
     return phrases
@@ -136,6 +134,18 @@ def seed_prayer(ref, en_title, he_title, section, service_id, order):
     db.session.add(prayer)
     db.session.flush()
 
+    max_lines = max(len(he_lines), len(en_lines))
+    for line_i in range(max_lines):
+        he_line = he_lines[line_i] if line_i < len(he_lines) else ""
+        en_line = en_lines[line_i] if line_i < len(en_lines) else ""
+        if he_line.strip() or en_line.strip():
+            db.session.add(Line(
+                prayer_id  = prayer.id,
+                line_index = line_i,
+                he_text    = he_line.strip() or None,
+                en_text    = en_line.strip() or None,
+            ))
+
     he_phrases = split_into_phrases(he_lines)
     en_phrases = split_into_phrases(en_lines)
 
@@ -157,12 +167,11 @@ def seed_prayer(ref, en_title, he_title, section, service_id, order):
 
     db.session.flush()
 
-    he_word_index  = 0
-    en_word_index  = 0
+    he_word_index = 0
+    en_word_index = 0
 
     for phrase_index, p in enumerate(he_phrases):
-        words = p["text"].split()
-        for word in words:
+        for word in p["text"].split():
             stripped = strip_niqqud(word)
             if word == stripped:
                 continue
@@ -177,8 +186,7 @@ def seed_prayer(ref, en_title, he_title, section, service_id, order):
             he_word_index += 1
 
     for phrase_index, p in enumerate(en_phrases):
-        words = p["text"].split()
-        for word in words:
+        for word in p["text"].split():
             db.session.add(EnglishWord(
                 prayer_id    = prayer.id,
                 phrase_index = phrase_index,
@@ -193,20 +201,16 @@ def seed_prayer(ref, en_title, he_title, section, service_id, order):
         print(f"skip (no voweled words): {ref}")
         return
 
-    last_he = HebrewWord.query.filter_by(
-        prayer_id=prayer.id
-    ).order_by(HebrewWord.word_index.desc()).first()
+    last_he = HebrewWord.query.filter_by(prayer_id=prayer.id).order_by(HebrewWord.word_index.desc()).first()
     if last_he:
         last_he.is_last = True
 
-    last_en = EnglishWord.query.filter_by(
-        prayer_id=prayer.id
-    ).order_by(EnglishWord.word_index.desc()).first()
+    last_en = EnglishWord.query.filter_by(prayer_id=prayer.id).order_by(EnglishWord.word_index.desc()).first()
     if last_en:
         last_en.is_last = True
 
     db.session.commit()
-    print(f"seeded: '{en_title}' [{section}] — {he_word_index} he words, {en_word_index} en words, {len(he_phrases)} he phrases, {len(en_phrases)} en phrases")
+    print(f"seeded: '{en_title}' [{section}] — {he_word_index} he words, {en_word_index} en words, {len(he_phrases)} he phrases, {len(en_phrases)} en phrases, {max_lines} lines")
 
 
 with app.app_context():
