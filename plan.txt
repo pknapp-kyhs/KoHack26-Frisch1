@@ -2,6 +2,8 @@ Pages:
     Index:
         - Has Buttons with main features
             1. Highlight Text
+                - Display Teffilah Text
+                - On/Off button for live Transciption
             2. Word by Word/Phrase by Phrase
             3. Shiur Transciption
                 - Insert Audio File
