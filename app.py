@@ -1,7 +1,6 @@
 from flask import *
 from flask_sqlalchemy import SQLAlchemy
 
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
 app.secret_key = 'SecretKey'
@@ -16,6 +15,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(80), nullable=False)
+
 
 with app.app_context():
     db.create_all()
@@ -39,8 +39,12 @@ def signup():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
+        if User.query.filter_by(username=username).first():
+            flash('Username already exists')
+            return redirect(url_for('signup'))
         new_user = User(username=username, password=password)
         db.session.add(new_user)
         db.session.commit()
+        session['username'] = username
         return redirect(url_for('index'))
     return render_template("signup.html")

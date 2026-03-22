@@ -2,13 +2,24 @@ Pages:
     Index:
         - Has Buttons with main features
             1. Highlight Text
-                - Display Teffilah Text
-                - On/Off button for live Transciption
             2. Word by Word/Phrase by Phrase
             3. Shiur Transciption
-                - Insert Audio File
-                - Live Transciption
-                - AllHatorah Quick Access
-        - Has login Capabilities
+        - Has login Capabilities(Not Required)
             - Used to set preferences
-        
+
+    Highlight:
+        - Display Teffilah Text
+        - On/Off button for live Highlight
+        - Word Size
+
+
+    Word by Word:
+        - List of Prayers
+        - WPM dial 
+        - Displayed Text
+        - Word Size
+
+    Shiur Transciption:
+        - Insert Audio File
+        - Live Transciption
+        - AllHatorah Quick Access
