@@ -7,7 +7,7 @@ app.secret_key = 'SecretKey'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-from prayermodel import PrayerService, PrayerText, Word
+from sefaria_api.prayermodel import PrayerService, PrayerText, Word
 
 
 
