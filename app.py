@@ -9,8 +9,8 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 socketio.init_app(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
-from sefaria_api.texthelperfunctions import get_hebrew_words, get_english_words, get_hebrew_phrases, get_english_phrases
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
+
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -54,39 +54,14 @@ def word_by_word():
     services = PrayerService.query.all()
     return render_template("wbw.html", services=services)
 
-@app.route('/highlight', methods=['POST'])
+@app.route('/highlight', methods=['GET', 'POST'])
 def highlight():
-    return render_template("highlight.html")
+    services = PrayerService.query.all()
+    return render_template("highlight.html", services=services)
 
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
     return render_template("transcribe.html")
-
-@app.route('/EN' , methods=['POST'])
-def EN():
-    type = request.form.get('prayerType')
-    lang = request.form.get('language')
-    prayer = request.form.get('prayer')
-    #speed = request.form.get('speed')
-    if request.form.get('index'):
-        index = int(request.form.get('index'))
-    else:
-        index = 10
-    text = get_english_words(type, prayer, None)
-    return render_template("EN.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
-@app.route('/HE' , methods=['POST', 'GET'])
-def HE():
-    type = "Shacharit"
-    lang = "he"
-    prayer = "Ashrei"
-    index = 10
-    if request.method == 'POST':
-        type = request.form.get('prayerType')
-        lang = request.form.get('language')
-        prayer = request.form.get('prayer')
-        index = int(request.form.get('index'))
-    text = get_hebrew_words(type, prayer, None)
-    return render_template("HE.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
@@ -98,8 +73,8 @@ def siddur():
     service = PrayerService.query.filter_by(name_en=selected_service).first()
     prayers = service.prayer_texts if service else []
 
-    text   = ""
-    prayer = None
+    text        = ""
+    prayer      = None
     next_prayer = None
     prev_prayer = None
 
@@ -134,7 +109,7 @@ def siddur():
         prev_prayer      = prev_prayer,
     )
 
-from websocket import wbw_socket
+from websocket import wbw_socket, highlight_socket
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

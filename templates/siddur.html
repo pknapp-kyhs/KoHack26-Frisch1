@@ -10,7 +10,7 @@
   <select name="service" onchange="this.form.submit()">
     {% for s in services %}
       <option value="{{ s.name_en }}" {% if s.name_en == selected_service %}selected{% endif %}>
-        {{ s.name_en }}
+        {% if selected_lang != 'en' and s.name_he %}{{ s.name_he }}{% else %}{{ s.name_en }}{% endif %}
       </option>
     {% endfor %}
   </select>
@@ -22,7 +22,7 @@
     <option value="">-- select --</option>
     {% for p in prayers %}
       <option value="{{ p.en_title }}" {% if p.en_title == selected_prayer %}selected{% endif %}>
-        {{ p.en_title }}
+        {% if selected_lang != 'en' and p.he_title %}{{ p.he_title }}{% else %}{{ p.en_title }}{% endif %}
       </option>
     {% endfor %}
   </select>
