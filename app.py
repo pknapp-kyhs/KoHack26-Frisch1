@@ -1,5 +1,6 @@
 from flask import *
 from extensions import db, socketio
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
@@ -28,8 +29,8 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
             session['username'] = username
             return redirect(url_for('index'))
     return render_template("login.html")
@@ -42,29 +43,46 @@ def signup():
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
             return redirect(url_for('signup'))
-        new_user = User(username=username, password=password)
+        new_user = User(username=username, password=generate_password_hash(password))
         db.session.add(new_user)
         db.session.commit()
         session['username'] = username
         return redirect(url_for('index'))
     return render_template("signup.html")
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
 @app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
+    if not session:
+        flash('Please log in to access the word-by-word feature')
+        return redirect(url_for('index'))
     services = PrayerService.query.all()
     return render_template("wbw.html", services=services)
 
 @app.route('/highlight', methods=['GET', 'POST'])
 def highlight():
+    if not session:
+        flash('Please log in to access the Follow the Chazzan feature')
+        return redirect(url_for('index'))
     services = PrayerService.query.all()
     return render_template("highlight.html", services=services)
 
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
+    if not session:
+        flash('Please log in to access the transcription feature')
+        return redirect(url_for('index'))
     return render_template("transcribe.html")
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
+    if not session:
+        flash('Please log in to access the siddur')
+        return redirect(url_for('index'))
     services         = PrayerService.query.all()
     selected_service = request.form.get('service', 'Shacharit')
     selected_prayer  = request.form.get('prayer', '')

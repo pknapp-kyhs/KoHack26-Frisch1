@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+
+{% block title %}Transcribe Shiur{% endblock %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <h1>Transcribe Shiur</h1>
+    
+    <div class="mb-4">
+        <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Upload Audio File</h2>
+        <form method="post" action="/transcribe" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="audio">Select audio file (MP3, WAV, etc.)</label>
+                <input type="file" id="audio" name="audio" accept="audio/*" class="mt-4">
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Upload & Transcribe</button>
+        </form>
+    </div>
+
+    <div style="border-top: 1px solid var(--border); padding-top: 2rem; margin-top: 2rem;">
+        <h2 style="font-size: 1.1rem; margin-bottom: 1rem;">Live Recording</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">
+            Record a live shiur directly from your microphone.
+        </p>
+        
+        <div class="flex flex-wrap">
+            <form method="post" action="/transcribe" style="flex: 1">
+                <button type="submit" name="Start_Record" class="btn btn-primary btn-block">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                    Start Recording
+                </button>
+            </form>
+            
+            <form method="post" action="/transcribe" style="flex: 1">
+                <button type="submit" name="Stop_Record" class="btn btn-outline btn-block" style="color: #dc2626; border-color: #fecaca;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+                    Stop Recording
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="text-center mt-4" style="border-top: 1px solid var(--border); padding-top: 2rem;">
+        <a href="/" class="btn btn-outline" style="font-size: 0.8rem;">Back to Home</a>
+    </div>
+</div>
+{% endblock %}
