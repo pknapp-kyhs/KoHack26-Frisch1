@@ -1,0 +1,111 @@
+{% extends "layout.html" %}
+
+{% block title %}Siddur{% endblock %}
+
+{% block extra_head %}
+<style>
+    .prayer-text {
+        font-family: 'Assistant', sans-serif;
+        font-size: 1.5rem;
+        line-height: 2;
+        padding: 2rem;
+        background: #fff;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        margin: 2rem 0;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .siddur-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .nav-buttons {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Siddur</h1>
+
+    <form method="POST" action="/siddur">
+        <div class="siddur-controls">
+            <div class="form-group">
+                <label>Service</label>
+                <select name="service" onchange="this.form.submit()">
+                    {% for s in services %}
+                        <option value="{{ s.name_en }}" {% if s.name_en == selected_service %}selected{% endif %}>
+                            {% if selected_lang != 'en' and s.name_he %}{{ s.name_he }}{% else %}{{ s.name_en }}{% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Prayer</label>
+                <select name="prayer" onchange="this.form.submit()">
+                    <option value="">-- select --</option>
+                    {% for p in prayers %}
+                        <option value="{{ p.en_title }}" {% if p.en_title == selected_prayer %}selected{% endif %}>
+                            {% if selected_lang != 'en' and p.he_title %}{{ p.he_title }}{% else %}{{ p.en_title }}{% endif %}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Language</label>
+                <select name="lang" onchange="this.form.submit()">
+                    <option value="vowel" {% if selected_lang == 'vowel' %}selected{% endif %}>Hebrew (voweled)</option>
+                    <option value="he"    {% if selected_lang == 'he'    %}selected{% endif %}>Hebrew (plain)</option>
+                    <option value="en"    {% if selected_lang == 'en'    %}selected{% endif %}>English</option>
+                </select>
+            </div>
+        </div>
+    </form>
+
+    {% if prayer %}
+        <div class="prayer-text {{ 'rtl' if selected_lang != 'en' else 'ltr' }}">
+            {{ text }}
+        </div>
+    {% elif selected_prayer %}
+        <div class="prayer-text text-center" style="font-size: 1.1rem; color: var(--text-muted);">
+            Could not load prayer text.
+        </div>
+    {% else %}
+        <div class="prayer-text text-center" style="font-size: 1.1rem; color: var(--text-muted);">
+            Select a prayer to view the text.
+        </div>
+    {% endif %}
+
+    <div class="nav-buttons">
+        <form method="POST" action="/siddur" style="flex: 1">
+            <input type="hidden" name="service" value="{{ selected_service }}">
+            <input type="hidden" name="lang" value="{{ selected_lang }}">
+            <input type="hidden" name="prayer" value="{{ prev_prayer }}">
+            <button type="submit" class="btn btn-outline btn-block" {% if not prev_prayer %}disabled{% endif %}>
+                &larr; Previous
+            </button>
+        </form>
+
+        <form method="POST" action="/siddur" style="flex: 1">
+            <input type="hidden" name="service" value="{{ selected_service }}">
+            <input type="hidden" name="lang" value="{{ selected_lang }}">
+            <input type="hidden" name="prayer" value="{{ next_prayer }}">
+            <button type="submit" class="btn btn-outline btn-block" {% if not next_prayer %}disabled{% endif %}>
+                Next &rarr;
+            </button>
+        </form>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="/" class="btn btn-outline" style="font-size: 0.8rem;">Back to Home</a>
+    </div>
+</div>
+{% endblock %}

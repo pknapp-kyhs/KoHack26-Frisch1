@@ -1,0 +1,281 @@
+{% extends "layout.html" %}
+
+{% block title %}Follow Along{% endblock %}
+
+{% block extra_head %}
+<style>
+    #prayer-display {
+        font-family: 'Assistant', sans-serif;
+        font-size: 1.5rem;
+        line-height: 2;
+        padding: 2rem;
+        background: #fff;
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        margin: 2rem 0;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+    .highlight-active {
+        background-color: #fef08a !important; /* Yellow-200 */
+        border-radius: 4px;
+        transition: background-color 0.3s ease;
+    }
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1.5rem;
+    }
+    #results-list div {
+        background: #f1f5f9;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        background: #e2e8f0;
+        color: #475569;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="flex" style="justify-content: space-between; margin-bottom: 2rem;">
+        <h1>Follow the Chazzan</h1>
+        <button onclick="toggleSettings()" class="btn btn-outline">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+            Settings
+        </button>
+    </div>
+
+    <div id="settings-panel" class="mb-4" style="background: #f8fafc; padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+        <div class="settings-grid">
+            <div class="form-group">
+                <label>Service</label>
+                <select id="service">
+                    {% for s in services %}
+                    <option value="{{ s.name_en }}" data-he="{{ s.name_he or s.name_en }}">
+                        {{ s.name_en }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Search Language</label>
+                <select id="listen-lang" onchange="onListenLangChange()">
+                    <option value="he">Hebrew (no niqqud)</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Display Language</label>
+                <select id="display-lang" onchange="onDisplayLangChange()">
+                    <option value="he">Hebrew</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="mt-4 flex">
+            <div style="flex: 1">
+                <label>Search Phrase</label>
+                <input type="text" id="search-box" placeholder="Type a Hebrew phrase...">
+            </div>
+            <button onclick="searchWord()" class="btn btn-primary" style="align-self: flex-end; height: 42px;">Find</button>
+        </div>
+        
+        <div class="mt-4 flex" style="justify-content: space-between; align-items: center;">
+            <div id="status" class="status-badge">Waiting...</div>
+            <div id="error-msg" style="color: #dc2626; font-size: 0.875rem; font-weight: 600;"></div>
+        </div>
+    </div>
+
+    <div id="results-panel" style="display:none" class="mb-4">
+        <h2 style="font-size: 1rem;">Found <span id="results-count"></span>:</h2>
+        <div id="results-list"></div>
+    </div>
+
+    <div id="prayer-name" style="font-weight:700; font-size: 1.25rem; color: var(--primary);" class="text-center"></div>
+    <div id="prayer-display" style="display:none"></div>
+
+    <div class="text-center mt-4">
+        <a href="/" class="btn btn-outline" style="font-size: 0.8rem;">Back to Home</a>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script>
+  const socket = io();
+
+  const serviceEl     = document.getElementById('service');
+  const displayLangEl = document.getElementById('display-lang');
+  const listenLangEl  = document.getElementById('listen-lang');
+  const searchBox     = document.getElementById('search-box');
+  const display       = document.getElementById('prayer-display');
+  const status        = document.getElementById('status');
+  const errMsg        = document.getElementById('error-msg');
+  const prayerName    = document.getElementById('prayer-name');
+  const resultsPanel  = document.getElementById('results-panel');
+  const resultsCount  = document.getElementById('results-count');
+  const resultsList   = document.getElementById('results-list');
+
+  let lines       = [];
+  let currentLine = -1;
+  let allMatches  = [];
+
+  function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  }
+
+  function isHebrewDisplay() {
+    return displayLangEl.value !== 'en';
+  }
+
+  function isHebrewSearch() {
+    return listenLangEl.value !== 'en';
+  }
+
+  function updateServiceLabels() {
+    Array.from(serviceEl.options).forEach(opt => {
+      opt.textContent = isHebrewDisplay() && opt.dataset.he ? opt.dataset.he : opt.value;
+    });
+  }
+
+  function onDisplayLangChange() {
+    updateServiceLabels();
+    rerenderLines();
+  }
+
+  function onListenLangChange() {
+    if (isHebrewSearch()) {
+      searchBox.placeholder     = 'Type a Hebrew phrase...';
+      searchBox.style.direction = 'rtl';
+    } else {
+      searchBox.placeholder     = 'Type an English phrase...';
+      searchBox.style.direction = 'ltr';
+    }
+  }
+
+  function searchWord() {
+    const phrase = searchBox.value.trim();
+    if (!phrase) return;
+    errMsg.textContent  = '';
+    status.textContent  = `Searching for "${phrase}"...`;
+    resultsPanel.style.display = 'none';
+    display.style.display      = 'none';
+    socket.emit('highlight_search', {
+      service:      serviceEl.value,
+      word:         phrase,
+      search_lang:  listenLangEl.value,
+      display_lang: displayLangEl.value,
+    });
+  }
+
+  searchBox.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchWord();
+  });
+
+  function getLineText(l) {
+    return displayLangEl.value === 'en' ? (l.en_text || '') : (l.he_text || '');
+  }
+
+  function isRtl() {
+    return displayLangEl.value !== 'en';
+  }
+
+  function renderLines(highlightIndex) {
+    display.innerHTML = lines.map(l => {
+      const text        = getLineText(l);
+      const highlighted = l.line_index === highlightIndex;
+      return `<p id="line-${l.line_index}"
+                 class="${highlighted ? 'highlight-active' : ''}"
+                 style="direction:${isRtl() ? 'rtl' : 'ltr'}; margin: 4px 0; padding: 2px 8px;"
+               >${text}</p>`;
+    }).join('');
+    display.style.display = '';
+  }
+
+  function rerenderLines() {
+    if (!lines.length) return;
+    renderLines(currentLine);
+    if (currentLine >= 0) {
+      const el = document.getElementById(`line-${currentLine}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function moveHighlight(line_index) {
+    if (currentLine >= 0) {
+      const prev = document.getElementById(`line-${currentLine}`);
+      if (prev) prev.classList.remove('highlight-active');
+    }
+    currentLine = line_index;
+    const el = document.getElementById(`line-${line_index}`);
+    if (el) {
+      el.classList.add('highlight-active');
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+
+  function gotoMatch(match) {
+    socket.emit('highlight_goto', {
+      prayer_id:    match.prayer_id,
+      line_index:   match.line_index,
+      display_lang: displayLangEl.value,
+    });
+  }
+
+  socket.on('highlight_results', ({ word, matches }) => {
+    allMatches = matches;
+    status.textContent = `Found ${matches.length} match${matches.length !== 1 ? 'es' : ''} for "${word}"`;
+
+    resultsCount.textContent = `${matches.length} match${matches.length !== 1 ? 'es' : ''}`;
+    resultsList.innerHTML = matches.map((m, i) =>
+      `<div>
+        <button onclick="gotoMatch(allMatches[${i}])" class="btn btn-outline" style="padding: 4px 12px; font-size: 0.8rem;">Go</button>
+        <div style="font-size: 0.9rem;">
+            <strong>${m.prayer_name}</strong> — line ${m.line_index + 1}
+            <span style="color: var(--text-muted); margin-left: 8px;">(${Math.round(m.score * 100)}%)</span>
+        </div>
+      </div>`
+    ).join('');
+
+    resultsPanel.style.display = '';
+  });
+
+  socket.on('highlight_found', ({ line_index, prayer_name, lines: incoming }) => {
+    lines       = incoming;
+    currentLine = line_index;
+    prayerName.textContent = prayer_name;
+    renderLines(line_index);
+    document.getElementById('settings-panel').style.display = 'none';
+    const el = document.getElementById(`line-${line_index}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+
+  socket.on('highlight_miss', ({ word }) => {
+    status.textContent = `"${word}" not found in this service.`;
+  });
+
+  socket.on('highlight_error', ({ message }) => {
+    errMsg.textContent = message;
+  });
+
+  socket.on('highlight_update', ({ line_index, word }) => {
+    if (!lines.length) return;
+    moveHighlight(line_index);
+    status.textContent = `Line ${line_index + 1} — "${word}"`;
+  });
+
+  updateServiceLabels();
+</script>
+{% endblock %}

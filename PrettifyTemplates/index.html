@@ -1,0 +1,79 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="alert alert-warning">
+                {% for message in messages %}
+                    {{ message }}
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    {% if session.username %}
+        <h1>Welcome, {{ session.username }}!</h1>
+        <p style="color: var(--text-muted)">What would you like to do today?</p>
+    {% else %}
+        <h1>Welcome to PrayerApp</h1>
+        <p style="color: var(--text-muted)">Please login or sign up to access all features.</p>
+    {% endif %}
+</div>
+
+<div class="grid">
+    <!-- Word by Word Prayer -->
+    <div class="card grid-card">
+        <div>
+            <h2>Word by Word</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Follow prayers at your own pace with our word-by-word display tool.</p>
+        </div>
+        <form method="GET" action="/wbw">
+            <button type="submit" class="btn btn-primary btn-block">Open Word by Word</button>
+        </form>
+    </div>
+
+    <!-- Follow Along -->
+    <div class="card grid-card">
+        <div>
+            <h2>Follow the Chazzan</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Real-time highlighting to help you follow along during the service.</p>
+        </div>
+        <form method="GET" action="/highlight">
+            <button type="submit" class="btn btn-outline btn-block">Start Following</button>
+        </form>
+    </div>
+
+    <!-- Transcribe Shiur -->
+    <div class="card grid-card">
+        <div>
+            <h2>Transcribe Shiur</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Upload or record audio to get a full transcription of your favorite lessons.</p>
+        </div>
+        <form method="GET" action="/transcribe">
+            <button type="submit" class="btn btn-outline btn-block">Transcribe Audio</button>
+        </form>
+    </div>
+
+    <!-- Open Siddur -->
+    <div class="card grid-card">
+        <div>
+            <h2>Open Siddur</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Browse our complete collection of prayers in multiple languages.</p>
+        </div>
+        <form method="GET" action="/siddur">
+            <button type="submit" class="btn btn-outline btn-block">View Siddur</button>
+        </form>
+    </div>
+</div>
+
+{% if not session.username %}
+<div class="text-center mt-4">
+    <div class="flex" style="justify-content: center;">
+        <a href="/login" class="btn btn-outline">Login</a>
+        <a href="/signup" class="btn btn-primary">Create Account</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
