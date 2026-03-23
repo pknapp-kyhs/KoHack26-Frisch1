@@ -52,7 +52,7 @@ async function startRecording() {
     if (!isRecording) return;
 
     const inputData = event.inputBuffer.getChannelData(0); //stores audio as a float list
-    const downsampled = downsampleBuffer( 
+    const downsampled = downsampleBuffer(
       inputData,
       audioContext.sampleRate,
       TARGET_SAMPLE_RATE,
