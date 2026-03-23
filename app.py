@@ -6,6 +6,23 @@ from flask_socketio import SocketIO
 from vosk import Model, KaldiRecognizer
 from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
 
+import sys
+import os
+websocket_path = os.path.join(os.getcwd(), 'websocket')
+print(f"DEBUG: Checking for websocket folder at: {websocket_path}", file=sys.stderr, flush=True)
+print(f"DEBUG: Folder exists: {os.path.exists(websocket_path)}", file=sys.stderr, flush=True)
+
+try:
+    # Adding the websocket folder to the system path so Python can find wbw_socket.py
+    sys.path.append(websocket_path)
+    import wbw_socket
+    print("DEBUG: wbw_socket successfully imported using sys.path", file=sys.stderr, flush=True)
+except Exception as e:
+    print(f"DEBUG: Critical Import Error: {e}", file=sys.stderr, flush=True)
+    # This will print the full error stack trace to help us see where it died
+    import traceback
+    traceback.print_exc()
+
 app = Flask(__name__)
 socketio = SocketIO(
     app,
@@ -68,6 +85,7 @@ def signup():
 @app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
     services = PrayerService.query.all()
+    print('DEBUG: USER VISITED ')
     return render_template("wbw.html", services=services)
 
 @app.route('/highlight', methods=['GET', 'POST'])

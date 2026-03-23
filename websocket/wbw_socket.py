@@ -71,15 +71,17 @@ def handle_start_wbw(data):
     })
     emit("wbw_done", {})
 
-
 @socketio.on("get_prayers")
 def handle_get_prayers(data):
     service_name = data.get("service", "Shacharit")
+    print(f"DEBUG: Backend fetching prayers for {service_name}", flush=True)
+
     service = PrayerService.query.filter(
         PrayerService.name_en.ilike(service_name)
     ).first()
 
     if not service:
+        print(f"DEBUG: Service {service_name} not found in DB", flush=True)
         emit("prayers_list", {"prayers": []})
         return
 
@@ -88,4 +90,6 @@ def handle_get_prayers(data):
         for p in service.prayer_texts
         if p.en_title
     ]
+    
+    print(f"DEBUG: Found {len(prayers)} prayers. Emitting to frontend...", flush=True)
     emit("prayers_list", {"prayers": prayers})
