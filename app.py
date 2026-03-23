@@ -88,6 +88,52 @@ def HE():
     text = get_hebrew_words(type, prayer, None)
     return render_template("HE.html", text=text, index=index, type=type, lang=lang, prayer=prayer)
 
+@app.route('/siddur', methods=['GET', 'POST'])
+def siddur():
+    services         = PrayerService.query.all()
+    selected_service = request.form.get('service', 'Shacharit')
+    selected_prayer  = request.form.get('prayer', '')
+    selected_lang    = request.form.get('lang', 'vowel')
+
+    service = PrayerService.query.filter_by(name_en=selected_service).first()
+    prayers = service.prayer_texts if service else []
+
+    text   = ""
+    prayer = None
+    next_prayer = None
+    prev_prayer = None
+
+    if selected_prayer and service:
+        prayer = PrayerText.query.filter(
+            PrayerText.prayer_service_id == service.id,
+            PrayerText.en_title == selected_prayer
+        ).first()
+
+        if prayer:
+            if selected_lang == 'en':
+                text = " ".join(w.word for w in prayer.english_words if w.word)
+            elif selected_lang == 'vowel':
+                text = " ".join(w.word_vowel for w in prayer.hebrew_words if w.word_vowel)
+            else:
+                text = " ".join(w.word for w in prayer.hebrew_words if w.word)
+
+            prayer_list = [p.en_title for p in prayers]
+            current_idx = prayer_list.index(selected_prayer)
+            next_prayer = prayer_list[current_idx + 1] if current_idx + 1 < len(prayer_list) else None
+            prev_prayer = prayer_list[current_idx - 1] if current_idx > 0 else None
+
+    return render_template('siddur.html',
+        services         = services,
+        prayers          = prayers,
+        selected_service = selected_service,
+        selected_prayer  = selected_prayer,
+        selected_lang    = selected_lang,
+        text             = text,
+        prayer           = prayer,
+        next_prayer      = next_prayer,
+        prev_prayer      = prev_prayer,
+    )
+
 from websocket import wbw_socket
 
 if __name__ == '__main__':
