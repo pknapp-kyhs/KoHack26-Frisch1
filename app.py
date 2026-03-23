@@ -1,8 +1,9 @@
 from flask import *
-from extensions import db, socketio
+from extensions import db, socketio  # <-- Use this instance!
 import json
 import threading
-from flask_socketio import SocketIO
+# DO NOT import SocketIO here.
+
 from vosk import Model, KaldiRecognizer
 from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -26,30 +27,25 @@ except Exception as e:
     traceback.print_exc()
 
 app = Flask(__name__)
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*", #allowing any page to talk to server (for development)
-    async_mode="threading"
-)
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
 app.config['SECRET_KEY'] = 'SecretKey'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-
 model = Model('websocket/model')
 
 db.init_app(app)
-socketio.init_app(app)
 
+# 1. INITIALIZE the existing socketio instance instead of overwriting it
+socketio.init_app(
+    app,
+    cors_allowed_origins="*", 
+    async_mode="threading"
+)
 
-def is_valid_password(password):
-    pattern = r'^(?=.*[A-Z])(?=.*\d).{8,}$'
-    return re.match(pattern, password)
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(80), nullable=False)
+# 2. IMPORT your external socket files so their events register!
+import websocket.wbw_socket
+import websocket.highlight_socket  # If you are using this one too
 
 with app.app_context():
     db.create_all()
@@ -206,4 +202,4 @@ if __name__ == '__main__':
             jinja2.FileSystemLoader(extra_templates),
             app.jinja_loader,
         ])
-    socketio.run(app, debug=True)
+    socketio.run(app, host="0.0.0.0", port=5003, debug=True)
