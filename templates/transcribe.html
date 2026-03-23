@@ -1,4 +1,7 @@
-{% extends "layout.html" %}
+{% extends "layout.html" %} {% block content %}
+<form method="post" action="/transcribe" enctype="multipart/form-data">
+  <label for="audio">Upload audio file:</label><br />
+  <input type="file" id="audio" name="audio" accept="audio/*" /><br /><br />
 
 {% block content %}
     <form method="post" action="/transcribe" enctype="multipart/form-data">
@@ -10,10 +13,21 @@
 <form method="post" action="/transcribe">
         <button type="submit" name="Start_Record">Start Record</button>
 </form>
-<form method="post" action="/transcribe">
-        <button type="submit" name="Stop_Record">Stop Record</button>
-</form>
-<button onclick="window.location.href='/'">Home</button>
+<br />
+
+<button id="startBtn">Start Live Transcription</button>
+<button id="stopBtn" disabled>Stop</button>
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='socket.js') }}"></script>
+<div id="transcriptionBox">Live Transcription:</div>
+<script>
+  const transcriptionBox = document.getElementById("transcriptionBox");
+  socket.on("live_transcription_phrase", ({ text }) => {
+    transcriptionBox.textContent += " " + text;
+  });
+</script>
+<br />
+<button onclick="window.location.href = '/'">Home</button>
 
 {% if transcript %}
 <h3>✅ Your Transcription:</h3>
