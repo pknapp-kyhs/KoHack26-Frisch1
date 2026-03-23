@@ -72,7 +72,7 @@ def HE():
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
-    services        = PrayerService.query.all()
+    services         = PrayerService.query.all()
     selected_service = request.form.get('service', 'Shacharit')
     selected_prayer  = request.form.get('prayer', '')
     selected_lang    = request.form.get('lang', 'vowel')
@@ -82,6 +82,8 @@ def siddur():
 
     text   = ""
     prayer = None
+    next_prayer = None
+    prev_prayer = None
 
     if selected_prayer and service:
         prayer = PrayerText.query.filter(
@@ -97,6 +99,11 @@ def siddur():
             else:
                 text = " ".join(w.word for w in prayer.hebrew_words if w.word)
 
+            prayer_list = [p.en_title for p in prayers]
+            current_idx = prayer_list.index(selected_prayer)
+            next_prayer = prayer_list[current_idx + 1] if current_idx + 1 < len(prayer_list) else None
+            prev_prayer = prayer_list[current_idx - 1] if current_idx > 0 else None
+
     return render_template('siddur.html',
         services         = services,
         prayers          = prayers,
@@ -105,6 +112,8 @@ def siddur():
         selected_lang    = selected_lang,
         text             = text,
         prayer           = prayer,
+        next_prayer      = next_prayer,
+        prev_prayer      = prev_prayer,
     )
 
 from websocket import wbw_socket
