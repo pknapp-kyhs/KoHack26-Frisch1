@@ -1,23 +1,39 @@
-  {% extends "layout.html" %}
+{% extends "layout.html" %}
 
 {% block content %}
-{% if session.username %}
-  <h1>Welcome, {{ session.username }}!</h1>
-{% else %}
-  <h1>Welcome to App</h1>
-{% endif %}
-<a href="/signup">Signup</a>
-<a href="/login">Login</a>
-<form method="GET" action="/wbw">
-    <input type="submit" value="Word by Word Prayer">
-</form>
-<form method="GET" action="/highlight">
-    <button type="submit">Follow Along with the Chazzan</button>
-</form>
-<form method="GET" action="/transcribe">
-    <button type="submit">Transcribe Shiur</button>
-</form>
-<form method="GET" action="/siddur">
-  <button type="submit">Open Siddur</button>
-</form>
+  {% with messages = get_flashed_messages() %}
+      {% if messages %}
+          <div class="alert alert-warning">
+              {% for message in messages %}
+                  {{ message }}
+              {% endfor %}
+          </div>
+      {% endif %}
+  {% endwith %}
+  {% if session.username %}
+    <h1>Welcome, {{ session.username }}!</h1>
+  {% else %}
+    <h1>Welcome to Kol Text</h1>
+  {% endif %}
+
+  <a href="/signup">Signup</a>
+  <a href="/login">Login</a>
+
+  <form method="GET" action="/wbw">
+      <input type="submit" value="Word by Word Prayer">
+  </form>
+
+  <form method="GET" action="/highlight">
+      <button type="submit">Follow Along with the Chazzan</button>
+  </form>
+
+  <form method="GET" action="/transcribe">
+      <button type="submit">Transcribe Shiur</button>
+  </form>
+
+  <form method="GET" action="/siddur">
+    <button type="submit">Open Siddur</button>
+  </form>
+
+  <a href="/logout">Logout</a>
 {% endblock %}

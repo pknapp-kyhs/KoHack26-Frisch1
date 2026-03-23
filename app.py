@@ -65,7 +65,7 @@ def logout():
 
 @app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the word-by-word feature')
         return redirect(url_for('index'))
     services = PrayerService.query.all()
@@ -73,7 +73,7 @@ def word_by_word():
 
 @app.route('/highlight', methods=['GET', 'POST'])
 def highlight():
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the Follow the Chazzan feature')
         return redirect(url_for('index'))
     services = PrayerService.query.all()
@@ -81,14 +81,14 @@ def highlight():
 
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the transcription feature')
         return redirect(url_for('index'))
     return render_template("transcribe.html")
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the siddur')
         return redirect(url_for('index'))
     services         = PrayerService.query.all()
