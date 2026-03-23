@@ -121,12 +121,12 @@
 
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
         source = audioContext.createMediaStreamSource(micStream);
-        processor = audioContext.createScriptProcessor(4096, 1, 1);
+        processor = audioContext.createScriptProcessor(4096, 1, 1); //4096 is buffer size
 
         processor.onaudioprocess = (event) => {
           if (!isRecording) return;
 
-          const inputData = event.inputBuffer.getChannelData(0);
+          const inputData = event.inputBuffer.getChannelData(0); //stores audio as a float list
           const downsampled = downsampleBuffer(
             inputData,
             audioContext.sampleRate,

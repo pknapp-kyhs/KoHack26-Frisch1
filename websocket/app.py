@@ -1,18 +1,16 @@
 import os
 import json
 import threading
-import faulthandler
 
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO
 from vosk import Model, KaldiRecognizer
 
-faulthandler.enable()
 
 app = Flask(__name__)
 socketio = SocketIO(
     app,
-    cors_allowed_origins="*",
+    cors_allowed_origins="*", #allowing any page to talk to server (for development)
     async_mode="threading"
 )
 
@@ -22,10 +20,8 @@ MODEL_PATH = os.path.join(BASE_DIR, "model")
 if not os.path.isdir(MODEL_PATH):
     raise FileNotFoundError(
         f"Vosk model folder not found at: {MODEL_PATH}\n"
-        "Put the extracted model files inside websocket/model"
     )
 
-print(f"Loading model from: {MODEL_PATH}")
 model = Model(MODEL_PATH)
 
 # One recognizer + one lock per connected client
@@ -45,7 +41,7 @@ def handle_connect():
 
     recognizers[sid] = KaldiRecognizer(model, 16000)
     recognizers[sid].SetWords(True)
-    recognizer_locks[sid] = threading.Lock()
+    recognizer_locks[sid] = threading.Lock() #ensures no recognizers get mixed up
 
     print(f"Recognizer created for {sid}")
 
@@ -60,14 +56,14 @@ def handle_audio_stream(audio_chunk):
         print(f"No recognizer/lock found for {sid}")
         return
 
-    if not isinstance(audio_chunk, (bytes, bytearray)):
+    if not isinstance(audio_chunk, (bytes, bytearray)): #vosk can only handle raw byte audio data
         print(f"Unexpected audio type from {sid}: {type(audio_chunk)}")
         return
 
     # Prevent concurrent calls into Vosk native code
     with lock:
         try:
-            if recognizer.AcceptWaveform(audio_chunk):
+            if recognizer.AcceptWaveform(audio_chunk): #check if chunk contains a full word or not
                 result = json.loads(recognizer.Result())
                 text = result.get("text", "").strip()
 
