@@ -23,9 +23,10 @@
 <table>
   <tr>
     <td style="padding-right: 32px; vertical-align: top;">
-      <strong>Listening language:</strong><br>
-      <select id="listen-lang">
+      <strong>Search language:</strong><br>
+      <select id="listen-lang" onchange="onListenLangChange()">
         <option value="he">Hebrew (no niqqud)</option>
+        <option value="en">English</option>
       </select>
       <br><br>
       <input type="text" id="search-box" placeholder="Type a Hebrew phrase...">
@@ -67,6 +68,8 @@
 
   const serviceEl     = document.getElementById('service');
   const displayLangEl = document.getElementById('display-lang');
+  const listenLangEl  = document.getElementById('listen-lang');
+  const searchBox     = document.getElementById('search-box');
   const display       = document.getElementById('prayer-display');
   const status        = document.getElementById('status');
   const errMsg        = document.getElementById('error-msg');
@@ -88,6 +91,10 @@
     return displayLangEl.value !== 'en';
   }
 
+  function isHebrewSearch() {
+    return listenLangEl.value !== 'en';
+  }
+
   function updateServiceLabels() {
     Array.from(serviceEl.options).forEach(opt => {
       opt.textContent = isHebrewDisplay() && opt.dataset.he ? opt.dataset.he : opt.value;
@@ -99,8 +106,18 @@
     rerenderLines();
   }
 
+  function onListenLangChange() {
+    if (isHebrewSearch()) {
+      searchBox.placeholder     = 'Type a Hebrew phrase...';
+      searchBox.style.direction = 'rtl';
+    } else {
+      searchBox.placeholder     = 'Type an English phrase...';
+      searchBox.style.direction = 'ltr';
+    }
+  }
+
   function searchWord() {
-    const phrase = document.getElementById('search-box').value.trim();
+    const phrase = searchBox.value.trim();
     if (!phrase) return;
     errMsg.textContent  = '';
     status.textContent  = `Searching for "${phrase}"...`;
@@ -109,11 +126,12 @@
     socket.emit('highlight_search', {
       service:      serviceEl.value,
       word:         phrase,
+      search_lang:  listenLangEl.value,
       display_lang: displayLangEl.value,
     });
   }
 
-  document.getElementById('search-box').addEventListener('keydown', e => {
+  searchBox.addEventListener('keydown', e => {
     if (e.key === 'Enter') searchWord();
   });
 
@@ -205,6 +223,7 @@
     moveHighlight(line_index);
     status.textContent = `Line ${line_index + 1} — "${word}"`;
   });
+
   updateServiceLabels();
 </script>
 
