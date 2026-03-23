@@ -110,10 +110,8 @@ This design allows the application to:
 ---
 
 ## Notes
-- Passwords are currently stored in plain text and should be secured in the future  
+- Passwords are currently hashed and safe  
 - Debug mode is enabled  
-- Sefaria data must be reloaded manually if updates are needed  
-
 ---
 
 ## Authors
