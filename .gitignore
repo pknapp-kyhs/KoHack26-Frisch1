@@ -1,1 +1,3 @@
 websocket/model/
+.venv/
+__pycache__/

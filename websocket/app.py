@@ -92,8 +92,9 @@ def handle_disconnect():
 if __name__ == "__main__":
     socketio.run(
         app,
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=5003,
         debug=False,
-        use_reloader=False
+        use_reloader=False,
+        ssl_context='adhoc'
     )

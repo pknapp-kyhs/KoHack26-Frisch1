@@ -3,5 +3,6 @@ Flask-SocketIO==5.3.6
 eventlet==0.35.2
 websocket-client==1.7.0
 flask_socketio
+cryptography
 vosk
 #pip install -r requirements.txt
