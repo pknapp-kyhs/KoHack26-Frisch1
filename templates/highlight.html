@@ -238,6 +238,16 @@
     status.textContent = `Line ${line_index + 1} — "${word}"`;
   });
 
+socket.on("live_transcription_phrase", ({ text }) => {
+  searchBox.value = text;
+  socket.emit("highlight_search", {
+    service: serviceEl.value,
+    word: text,
+    search_lang: "en",
+    display_lang: displayLangEl.value,
+  });
+});
+
   updateServiceLabels();
 </script>
 

@@ -135,7 +135,6 @@ def handle_connect():
 
 @socketio.on("audio_stream")
 def handle_audio_stream(audio_chunk):
-    print("got a chunk")
     sid = request.sid
     recognizer = recognizers.get(sid)
     lock = recognizer_locks.get(sid)
@@ -146,9 +145,7 @@ def handle_audio_stream(audio_chunk):
             text = result.get("text", "").strip()
             if text:
                 #FINAL TRANSCRIPTION = text
-                print(text)
-                socketio.emit("transcription_result", {"text": text + " "}, to=sid)
-
+                socketio.emit("live_transcription_phrase", {"text": text}, to=sid)
 
 @socketio.on("disconnect")
 def handle_disconnect():
