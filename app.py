@@ -9,7 +9,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 socketio.init_app(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,21 +54,14 @@ def word_by_word():
     services = PrayerService.query.all()
     return render_template("wbw.html", services=services)
 
-@app.route('/highlight', methods=['POST'])
+@app.route('/highlight', methods=['GET', 'POST'])
 def highlight():
-    return render_template("highlight.html")
+    services = PrayerService.query.all()
+    return render_template("highlight.html", services=services)
 
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
     return render_template("transcribe.html")
-
-@app.route('/EN')
-def EN():
-    return render_template("EN.html")
-
-@app.route('/HE')
-def HE():
-    return render_template("HE.html")
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
@@ -80,8 +73,8 @@ def siddur():
     service = PrayerService.query.filter_by(name_en=selected_service).first()
     prayers = service.prayer_texts if service else []
 
-    text   = ""
-    prayer = None
+    text        = ""
+    prayer      = None
     next_prayer = None
     prev_prayer = None
 
@@ -116,7 +109,7 @@ def siddur():
         prev_prayer      = prev_prayer,
     )
 
-from websocket import wbw_socket
+from websocket import wbw_socket, highlight_socket
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

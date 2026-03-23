@@ -7,6 +7,7 @@ from flask_socketio import SocketIO
 from vosk import Model, KaldiRecognizer
 
 
+
 app = Flask(__name__)
 socketio = SocketIO(
     app,
