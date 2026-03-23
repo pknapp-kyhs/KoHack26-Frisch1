@@ -1,5 +1,7 @@
 from flask import *
 from extensions import db, socketio
+from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
@@ -9,7 +11,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 socketio.init_app(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
+
+def is_valid_password(password):
+    pattern = r'^(?=.*[A-Z])(?=.*\d).{8,}$'
+    return re.match(pattern, password)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -28,8 +34,8 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
-        user = User.query.filter_by(username=username, password=password).first()
-        if user:
+        user = User.query.filter_by(username=username).first()
+        if user and check_password_hash(user.password, password):
             session['username'] = username
             return redirect(url_for('index'))
     return render_template("login.html")
@@ -42,35 +48,102 @@ def signup():
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
             return redirect(url_for('signup'))
-        new_user = User(username=username, password=password)
+        if not is_valid_password(password):
+            flash('Password must be at least 8 characters long, contain at least one uppercase letter and one number')
+            return redirect(url_for('signup'))
+        new_user = User(username=username, password=generate_password_hash(password))
         db.session.add(new_user)
         db.session.commit()
         session['username'] = username
         return redirect(url_for('index'))
     return render_template("signup.html")
 
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
 @app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
+    if not session:
+        flash('Please log in to access the word-by-word feature')
+        return redirect(url_for('index'))
     services = PrayerService.query.all()
     return render_template("wbw.html", services=services)
 
-@app.route('/highlight', methods=['POST'])
+@app.route('/highlight', methods=['GET', 'POST'])
 def highlight():
-    return render_template("highlight.html")
+    if not session:
+        flash('Please log in to access the Follow the Chazzan feature')
+        return redirect(url_for('index'))
+    services = PrayerService.query.all()
+    return render_template("highlight.html", services=services)
 
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
+    if not session:
+        flash('Please log in to access the transcription feature')
+        return redirect(url_for('index'))
     return render_template("transcribe.html")
 
-@app.route('/EN')
-def EN():
-    return render_template("EN.html")
+@app.route('/siddur', methods=['GET', 'POST'])
+def siddur():
+    if not session:
+        flash('Please log in to access the siddur')
+        return redirect(url_for('index'))
+    services         = PrayerService.query.all()
+    selected_service = request.form.get('service', 'Shacharit')
+    selected_prayer  = request.form.get('prayer', '')
+    selected_lang    = request.form.get('lang', 'vowel')
 
-@app.route('/HE')
-def HE():
-    return render_template("HE.html")
+    service = PrayerService.query.filter_by(name_en=selected_service).first()
+    prayers = service.prayer_texts if service else []
 
-from websocket import wbw_socket
+    text        = ""
+    prayer      = None
+    next_prayer = None
+    prev_prayer = None
+
+    if selected_prayer and service:
+        prayer = PrayerText.query.filter(
+            PrayerText.prayer_service_id == service.id,
+            PrayerText.en_title == selected_prayer
+        ).first()
+
+        if prayer:
+            if selected_lang == 'en':
+                text = " ".join(w.word for w in prayer.english_words if w.word)
+            elif selected_lang == 'vowel':
+                text = " ".join(w.word_vowel for w in prayer.hebrew_words if w.word_vowel)
+            else:
+                text = " ".join(w.word for w in prayer.hebrew_words if w.word)
+
+            prayer_list = [p.en_title for p in prayers]
+            current_idx = prayer_list.index(selected_prayer)
+            next_prayer = prayer_list[current_idx + 1] if current_idx + 1 < len(prayer_list) else None
+            prev_prayer = prayer_list[current_idx - 1] if current_idx > 0 else None
+
+    return render_template('siddur.html',
+        services         = services,
+        prayers          = prayers,
+        selected_service = selected_service,
+        selected_prayer  = selected_prayer,
+        selected_lang    = selected_lang,
+        text             = text,
+        prayer           = prayer,
+        next_prayer      = next_prayer,
+        prev_prayer      = prev_prayer,
+    )
+
+from websocket import wbw_socket, highlight_socket
 
 if __name__ == '__main__':
+    import sys
+    import jinja2
+    if len(sys.argv) > 1:
+        extra_templates = sys.argv[1]
+        app.jinja_loader = jinja2.ChoiceLoader([
+            jinja2.FileSystemLoader(extra_templates),
+            app.jinja_loader,
+        ])
     socketio.run(app, debug=True)

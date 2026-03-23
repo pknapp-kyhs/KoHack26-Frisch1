@@ -1,1 +1,5 @@
 __pycache__/
+.venv/
+websocket/model/
+.venv/
+__pycache__/
