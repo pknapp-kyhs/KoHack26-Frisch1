@@ -1,6 +1,13 @@
 {% extends "layout.html" %}
 
 {% block content %}
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        {% for message in messages %}
+          <p>{{ message }}</p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     <h1>Login</h1>
     <form method="post" action="/login">
         <label for="username">Username:</label>
@@ -11,5 +18,5 @@
         
         <button type="submit">Login</button>
     </form>
-    <button onclick="window.location.href='/'">Home</button>
+    <a href="/"><button>Home</button></a>
 {% endblock %}
