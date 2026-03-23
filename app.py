@@ -112,4 +112,12 @@ def siddur():
 from websocket import wbw_socket, highlight_socket
 
 if __name__ == '__main__':
+    import sys
+    import jinja2
+    if len(sys.argv) > 1:
+        extra_templates = sys.argv[1]
+        app.jinja_loader = jinja2.ChoiceLoader([
+            jinja2.FileSystemLoader(extra_templates),
+            app.jinja_loader,
+        ])
     socketio.run(app, debug=True)
