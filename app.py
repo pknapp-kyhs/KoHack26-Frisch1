@@ -55,7 +55,7 @@ def is_valid_password(password):
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
-    password = db.Column(db.String(80), nullable=False)
+    password = db.Column(db.String(256), nullable=False)
 
 # 2. IMPORT your external socket files so their events register!
 import websocket.wbw_socket
