@@ -6,10 +6,13 @@
 
 <form method="POST" action="/siddur">
 
+  <!-- Service selector: choose which prayer service (e.g., Shacharit) -->
+  <!-- auto-submit triggers siddur route to update prayer list based on selected service -->
   <label>Service:</label>
   <select name="service" onchange="this.form.submit()">
     {% for s in services %}
       <option value="{{ s.name_en }}" {% if s.name_en == selected_service %}selected{% endif %}>
+        <!-- Use Hebrew service name when display language is Hebrew -->
         {% if selected_lang != 'en' and s.name_he %}{{ s.name_he }}{% else %}{{ s.name_en }}{% endif %}
       </option>
     {% endfor %}
@@ -17,11 +20,14 @@
 
   <br><br>
 
+  <!-- Prayer selector: choose a prayer within the selected service -->
+  <!-- auto-submit reloads text for selected prayer -->
   <label>Prayer:</label>
   <select name="prayer" onchange="this.form.submit()">
     <option value="">-- select --</option>
     {% for p in prayers %}
       <option value="{{ p.en_title }}" {% if p.en_title == selected_prayer %}selected{% endif %}>
+        <!-- Choose Hebrew or English prayer title based on language setting -->
         {% if selected_lang != 'en' and p.he_title %}{{ p.he_title }}{% else %}{{ p.en_title }}{% endif %}
       </option>
     {% endfor %}
@@ -29,6 +35,7 @@
 
   <br><br>
 
+  <!-- Language selector: display text in Hebrew (vowel/plain) or English -->
   <label>Language:</label>
   <select name="lang" onchange="this.form.submit()">
     <option value="vowel" {% if selected_lang == 'vowel' %}selected{% endif %}>Hebrew (voweled)</option>
@@ -40,6 +47,10 @@
 
 <br>
 
+<!-- Prayer text output zone -->
+<!-- if prayer data exists, render the text with proper direction -->
+<!-- fallback: show message when a prayer is selected but text missing -->
+<!-- starter message when no prayer selected yet -->
 {% if prayer %}
   <p dir="{{ 'rtl' if selected_lang != 'en' else 'ltr' }}">{{ text }}</p>
 {% elif selected_prayer %}
@@ -50,6 +61,7 @@
 
 <br>
 
+<!-- Prev/Next navigation preserving selected service and language -->
 <form method="POST" action="/siddur" style="display:inline">
   <input type="hidden" name="service" value="{{ selected_service }}">
   <input type="hidden" name="lang" value="{{ selected_lang }}">
