@@ -3,18 +3,233 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WEB SOCKET</title>
-    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <title>Live Transcription with Vosk</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: sans-serif;
+        padding: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      #transcriptionBox {
+        border: 1px solid #ccc;
+        height: 300px;
+        padding: 10px;
+        overflow-y: auto;
+        margin-top: 20px;
+        background: #f9f9f9;
+        white-space: pre-wrap;
+      }
+
+      button {
+        font-size: 1.1rem;
+        padding: 10px 16px;
+        margin-right: 10px;
+        cursor: pointer;
+      }
+
+      #status {
+        margin-top: 15px;
+        color: #555;
+      }
+
+      #partialBox {
+        margin-top: 10px;
+        color: #666;
+        font-style: italic;
+        min-height: 24px;
+      }
+    </style>
   </head>
   <body>
-    <input id="data_to_send" type="text" placeholder="Send Data" />
-    <button onclick="sendData()">Send</button>
+    <h1>Local Transcription (Vosk)</h1>
+    <button id="startBtn">Start Microphone</button>
+    <button id="stopBtn" disabled>Stop</button>
+
+    <div id="status">Status: Connecting...</div>
+    <div id="partialBox"></div>
+    <div id="transcriptionBox"></div>
 
     <script>
       const socket = io();
-      function sendData() {
-        const value = document.getElementById("data_to_send").value;
-        socket.emit("sent_data", { message: value });
+
+      const startBtn = document.getElementById("startBtn");
+      const stopBtn = document.getElementById("stopBtn");
+      const transcriptionBox = document.getElementById("transcriptionBox");
+      const statusDiv = document.getElementById("status");
+      const partialBox = document.getElementById("partialBox");
+
+      const TARGET_SAMPLE_RATE = 16000;
+
+      let audioContext = null;
+      let processor = null;
+      let source = null;
+      let micStream = null;
+      let isRecording = false;
+
+      socket.on("connect", () => {
+        statusDiv.textContent = "Status: Connected. Press Start Microphone.";
+      });
+
+      socket.on("disconnect", () => {
+        statusDiv.textContent = "Status: Disconnected from server.";
+        stopRecording();
+      });
+
+      socket.on("transcription_result", (data) => {
+        transcriptionBox.textContent += data.text;
+        transcriptionBox.scrollTop = transcriptionBox.scrollHeight;
+        partialBox.textContent = "";
+      });
+
+      socket.on("partial_transcription", (data) => {
+        partialBox.textContent = data.text;
+      });
+
+      startBtn.addEventListener("click", async () => {
+        try {
+          await startRecording();
+        } catch (err) {
+          console.error(err);
+          statusDiv.textContent = `Error: ${err.message}`;
+          stopRecording();
+        }
+      });
+
+      stopBtn.addEventListener("click", () => {
+        stopRecording();
+      });
+
+      async function startRecording() {
+        if (isRecording) return;
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("getUserMedia is not supported in this browser.");
+        }
+
+        micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+          },
+          video: false,
+        });
+
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        source = audioContext.createMediaStreamSource(micStream);
+        processor = audioContext.createScriptProcessor(4096, 1, 1); //4096 is buffer size
+
+        processor.onaudioprocess = (event) => {
+          if (!isRecording) return;
+
+          const inputData = event.inputBuffer.getChannelData(0); //stores audio as a float list
+          const downsampled = downsampleBuffer(
+            inputData,
+            audioContext.sampleRate,
+            TARGET_SAMPLE_RATE,
+          );
+
+          const pcm16 = convertFloat32ToInt16(downsampled);
+          socket.emit("audio_stream", pcm16.buffer);
+        };
+
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+
+        isRecording = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        statusDiv.textContent = `Status: Recording at source rate ${audioContext.sampleRate}Hz`;
+      }
+
+      function stopRecording() {
+        isRecording = false;
+
+        if (processor) {
+          processor.disconnect();
+          processor.onaudioprocess = null;
+          processor = null;
+        }
+
+        if (source) {
+          source.disconnect();
+          source = null;
+        }
+
+        if (micStream) {
+          micStream.getTracks().forEach((track) => track.stop());
+          micStream = null;
+        }
+
+        if (audioContext) {
+          audioContext.close();
+          audioContext = null;
+        }
+
+        startBtn.disabled = false;
+        stopBtn.disabled = true;
+        partialBox.textContent = "";
+        statusDiv.textContent = socket.connected
+          ? "Status: Stopped. Press Start Microphone."
+          : "Status: Disconnected from server.";
+      }
+
+      function downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
+        if (outputSampleRate === inputSampleRate) {
+          return buffer;
+        }
+
+        if (outputSampleRate > inputSampleRate) {
+          throw new Error(
+            "Output sample rate must be less than input sample rate.",
+          );
+        }
+
+        const sampleRateRatio = inputSampleRate / outputSampleRate;
+        const newLength = Math.round(buffer.length / sampleRateRatio);
+        const result = new Float32Array(newLength);
+
+        let offsetResult = 0;
+        let offsetBuffer = 0;
+
+        while (offsetResult < result.length) {
+          const nextOffsetBuffer = Math.round(
+            (offsetResult + 1) * sampleRateRatio,
+          );
+          let accum = 0;
+          let count = 0;
+
+          for (
+            let i = offsetBuffer;
+            i < nextOffsetBuffer && i < buffer.length;
+            i++
+          ) {
+            accum += buffer[i];
+            count++;
+          }
+
+          result[offsetResult] = count > 0 ? accum / count : 0;
+          offsetResult++;
+          offsetBuffer = nextOffsetBuffer;
+        }
+
+        return result;
+      }
+
+      function convertFloat32ToInt16(buffer) {
+        const l = buffer.length;
+        const result = new Int16Array(l);
+
+        for (let i = 0; i < l; i++) {
+          let s = Math.max(-1, Math.min(1, buffer[i]));
+          result[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+        }
+
+        return result;
       }
     </script>
   </body>
