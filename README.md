@@ -38,20 +38,38 @@ project/
 ├── instance/
 │   └── prayertext.db
 ├── sefaria_api/
+│   ├── __init__.py
 │   ├── pray.py
 │   ├── prayermodel.py
 │   ├── seed.py
+│   ├── test.py
+│   ├── test_sefaria.py
 │   └── texthelperfunctions.py
 ├── sofer_ai/
-│   └── main.py
+│   ├── __init__.py
+│   ├── main.py
+│   ├── SoferAPIManager.py
+│   ├── testSoferManager.py
+│   └── requirements.txt
+├── static/
+│   └── socket.js
 ├── templates/
-│   ├── EN.html
-│   ├── HE.html
-│   ├── highlight.html
-│   ├── index.html
 │   ├── layout.html
+│   ├── index.html
 │   ├── login.html
 │   ├── signup.html
+│   ├── delete.html
+│   ├── highlight.html
+│   ├── siddur.html
+│   ├── transcribe.html
+│   └── wbw.html
+├── PrettifyTemplates/
+│   ├── layout.html
+│   ├── index.html
+│   ├── login.html
+│   ├── signup.html
+│   ├── highlight.html
+│   ├── siddur.html
 │   ├── transcribe.html
 │   └── wbw.html
 └── websocket/
