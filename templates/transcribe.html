@@ -1,12 +1,8 @@
 {% extends "layout.html" %} {% block content %}
-    <form method="post" action="/transcribe" enctype="multipart/form-data">
-    <label for="audio">Upload audio file:</label><br>
-    <input type="file" id="audio" name="audio" accept="audio/*"><br><br>
-    <button type="submit">Upload</button>
-</form>
-<br>
-<form method="post" action="/transcribe">
-        <button type="submit" name="Start_Record">Start Record</button>
+<form method="post" action="/transcribe" enctype="multipart/form-data">
+  <label for="audio">Upload audio file:</label><br />
+  <input type="file" id="audio" name="audio" accept="audio/*" /><br /><br />
+  <button type="submit">Upload</button>
 </form>
 <br />
 
@@ -33,12 +29,10 @@
 <p id="transcript"></p>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-        const socket = io();
-        socket.on('transcription_ready', function (data) {
-                document.getElementById('status').innerText = '✅ Done!';
-                document.getElementById('transcript').innerText = data.text;
-        });
+  const socket = io();
+  socket.on("transcription_ready", function (data) {
+    document.getElementById("status").innerText = "✅ Done!";
+    document.getElementById("transcript").innerText = data.text;
+  });
 </script>
-{% endif %}
-
-{% endblock %}
+{% endif %} {% endblock %}
