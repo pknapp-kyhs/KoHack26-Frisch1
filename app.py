@@ -63,6 +63,20 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
+@app.route('/delete', methods=['GET', 'POST'])
+def delete_account():
+    if request.method == 'POST':
+        if 'username' in session:
+            user = User.query.filter_by(username=session['username']).first()
+            if user:
+                db.session.delete(user)
+                db.session.commit()
+            session.clear()
+        return redirect(url_for('index'))
+
+    return render_template("delete.html")
+
+
 @app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
     if 'username' not in session:
