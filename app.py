@@ -43,6 +43,19 @@ socketio.init_app(
     async_mode="threading"
 )
 
+model = Model('websocket/model')
+
+# Password validation: minimum 8 characters, at least one uppercase letter and one digit
+def is_valid_password(password):
+    pattern = r'^(?=.*[A-Z])(?=.*\d).{8,}$'
+    return re.match(pattern, password)
+
+# User model for authentication
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password = db.Column(db.String(80), nullable=False)
+
 # 2. IMPORT your external socket files so their events register!
 import websocket.wbw_socket
 import websocket.highlight_socket  # If you are using this one too
