@@ -2,3 +2,4 @@ Flask
 requests
 flask_sqlalchemy
 flask_socketio
+jinja2
