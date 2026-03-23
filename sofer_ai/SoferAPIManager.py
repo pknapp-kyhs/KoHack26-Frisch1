@@ -34,10 +34,10 @@ class SoferAPIManager:
         print(f'Waiting for job {job_id}')
         resultStatus = 'Pending'
         while resultStatus != 'COMPLETED':
+            sleep(interval)
             result = self.client.transcribe.get_transcription(job_id)
             resultStatus = result.info.status
             print(resultStatus)
-            sleep(interval)
         print(f'JOB {job_id} COMPLETE')
         return result
     

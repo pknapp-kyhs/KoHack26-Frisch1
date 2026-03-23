@@ -157,22 +157,40 @@ def transcribe():
     if 'username' not in session:
         flash('Please log in to access the transcription feature')
         return redirect(url_for('index'))
+        
     if request.method == 'POST':
         import os
         import threading
-        uploadedFile = request.files.get('audio')
-        filePath = os.path.join('sofer_ai/uploadedFiles', uploadedFile.filename)
-        uploadedFile.save(filePath)
+        if 'audio' in request.files:
+            uploadedFile = request.files.get('audio')
+            
+            if uploadedFile and uploadedFile.filename:
+                upload_folder = os.path.join('sofer_ai', 'uploadedFiles')
+                os.makedirs(upload_folder, exist_ok=True)
+                
+                filePath = os.path.join(upload_folder, uploadedFile.filename)
+                uploadedFile.save(filePath)
 
-        username = session['username']
-        def on_complete(text):
-            transcription_results[username] = text
-            socketio.emit('transcription_ready', {'text': text})
-        thread = threading.Thread(target=soferManager.runFullProcessAndCallback, args=(filePath, on_complete))
-        thread.daemon = True
-        thread.start()
-        return render_template("transcribe.html", waiting=True)
+                username = session['username']
+                def on_complete(text):
+                    transcription_results[username] = text
+                    socketio.emit('transcription_ready', {'text': text})
+                    
+                thread = threading.Thread(target=soferManager.runFullProcessAndCallback, args=(filePath, on_complete))
+                thread.daemon = True
+                thread.start()
+                return render_template("transcribe.html", waiting=True)
+        
+        # 2. Handle Live Recording POST requests
+        elif 'Start_Record' in request.form:
+            print("DEBUG: User clicked Start Recording")
+            return render_template("transcribe.html")
+            
+        elif 'Stop_Record' in request.form:
+            print("DEBUG: User clicked Stop Recording")
+            return render_template("transcribe.html")
 
+    # If it's a GET request (or form fell through), just load the page normally
     return render_template("transcribe.html", transcript=transcription_results.get(session['username']))
 
 @app.route('/siddur', methods=['GET', 'POST'])
