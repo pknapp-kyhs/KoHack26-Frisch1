@@ -1,6 +1,7 @@
 from flask import *
 from extensions import db, socketio
 from werkzeug.security import generate_password_hash, check_password_hash
+import re
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
@@ -11,6 +12,10 @@ db.init_app(app)
 socketio.init_app(app)
 
 from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
+
+def is_valid_password(password):
+    pattern = r'^(?=.*[A-Z])(?=.*\d).{8,}$'
+    return re.match(pattern, password)
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -42,6 +47,9 @@ def signup():
         password = request.form['password']
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
+            return redirect(url_for('signup'))
+        if not is_valid_password(password):
+            flash('Password must be at least 8 characters long, contain at least one uppercase letter and one number')
             return redirect(url_for('signup'))
         new_user = User(username=username, password=generate_password_hash(password))
         db.session.add(new_user)
