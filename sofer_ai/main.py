@@ -1,1 +1,0 @@
-from soferai import SoferAI
