@@ -1,42 +1,46 @@
-{% extends "layout.html" %}
+{% extends "layout.html" %} {% block content %}
 
-{% block content %}
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script> -->
 
 <h1>Highlight</h1>
 
 <button onclick="toggleSettings()">Settings</button>
 
-<br><br>
+<br /><br />
 
 <div id="settings-panel">
   <label>Service:</label>
   <select id="service">
     {% for s in services %}
-      <option value="{{ s.name_en }}" data-he="{{ s.name_he or s.name_en }}">
-        {{ s.name_en }}
-      </option>
+    <option value="{{ s.name_en }}" data-he="{{ s.name_he or s.name_en }}">
+      {{ s.name_en }}
+    </option>
     {% endfor %}
   </select>
-  <br><br>
+  <br /><br />
 </div>
 
 <table>
   <tr>
-    <td style="padding-right: 32px; vertical-align: top;">
-      <strong>Search language:</strong><br>
+    <td style="padding-right: 32px; vertical-align: top">
+      <strong>Search language:</strong><br />
       <select id="listen-lang" onchange="onListenLangChange()">
         <option value="he">Hebrew (no niqqud)</option>
         <option value="en">English</option>
       </select>
-      <br><br>
-      <input type="text" id="search-box" placeholder="Type a Hebrew phrase...">
+      <br /><br />
+      <input
+        type="text"
+        id="search-box"
+        placeholder="Type a Hebrew phrase..."
+      />
       <button onclick="searchWord()">Find</button>
-      <br><br>
+      <br /><br />
       <div id="status">Waiting...</div>
-      <div id="error-msg" style="color:red"></div>
+      <div id="error-msg" style="color: red"></div>
     </td>
-    <td style="vertical-align: top;">
-      <strong>Display language:</strong><br>
+    <td style="vertical-align: top">
+      <strong>Display language:</strong><br />
       <select id="display-lang" onchange="onDisplayLangChange()">
         <option value="he">Hebrew</option>
         <option value="en">English</option>
@@ -45,59 +49,61 @@
   </tr>
 </table>
 
-<br>
+<br />
 
-<div id="results-panel" style="display:none">
+<div id="results-panel" style="display: none">
   <strong id="results-count"></strong>
-  <br><br>
+  <br /><br />
   <div id="results-list"></div>
 </div>
 
-<br>
+<br />
 
-<div id="prayer-name" style="font-weight:bold"></div>
-<br>
-<div id="prayer-display" style="display:none"></div>
-
-<br>
-<button onclick="window.location.href='/'">Home</button>
+<div id="prayer-name" style="font-weight: bold"></div>
+<br />
+<div id="prayer-display" style="display: none"></div>
+<br />
+<button id="startBtn">Start Live Transcription</button>
+<button id="stopBtn" disabled>Stop</button>
+<br />
+<button onclick="window.location.href = '/'">Home</button>
 
 <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='socket.js') }}"></script>
 <script>
-  const socket = io();
+  const serviceEl = document.getElementById("service");
+  const displayLangEl = document.getElementById("display-lang");
+  const listenLangEl = document.getElementById("listen-lang");
+  const searchBox = document.getElementById("search-box");
+  const display = document.getElementById("prayer-display");
+  const status = document.getElementById("status");
+  const errMsg = document.getElementById("error-msg");
+  const prayerName = document.getElementById("prayer-name");
+  const resultsPanel = document.getElementById("results-panel");
+  const resultsCount = document.getElementById("results-count");
+  const resultsList = document.getElementById("results-list");
 
-  const serviceEl     = document.getElementById('service');
-  const displayLangEl = document.getElementById('display-lang');
-  const listenLangEl  = document.getElementById('listen-lang');
-  const searchBox     = document.getElementById('search-box');
-  const display       = document.getElementById('prayer-display');
-  const status        = document.getElementById('status');
-  const errMsg        = document.getElementById('error-msg');
-  const prayerName    = document.getElementById('prayer-name');
-  const resultsPanel  = document.getElementById('results-panel');
-  const resultsCount  = document.getElementById('results-count');
-  const resultsList   = document.getElementById('results-list');
-
-  let lines       = [];
+  let lines = [];
   let currentLine = -1;
-  let allMatches  = [];
+  let allMatches = [];
 
   function toggleSettings() {
-    const panel = document.getElementById('settings-panel');
-    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+    const panel = document.getElementById("settings-panel");
+    panel.style.display = panel.style.display === "none" ? "" : "none";
   }
 
   function isHebrewDisplay() {
-    return displayLangEl.value !== 'en';
+    return displayLangEl.value !== "en";
   }
 
   function isHebrewSearch() {
-    return listenLangEl.value !== 'en';
+    return listenLangEl.value !== "en";
   }
 
   function updateServiceLabels() {
-    Array.from(serviceEl.options).forEach(opt => {
-      opt.textContent = isHebrewDisplay() && opt.dataset.he ? opt.dataset.he : opt.value;
+    Array.from(serviceEl.options).forEach((opt) => {
+      opt.textContent =
+        isHebrewDisplay() && opt.dataset.he ? opt.dataset.he : opt.value;
     });
   }
 
@@ -108,50 +114,52 @@
 
   function onListenLangChange() {
     if (isHebrewSearch()) {
-      searchBox.placeholder     = 'Type a Hebrew phrase...';
-      searchBox.style.direction = 'rtl';
+      searchBox.placeholder = "Type a Hebrew phrase...";
+      searchBox.style.direction = "rtl";
     } else {
-      searchBox.placeholder     = 'Type an English phrase...';
-      searchBox.style.direction = 'ltr';
+      searchBox.placeholder = "Type an English phrase...";
+      searchBox.style.direction = "ltr";
     }
   }
 
   function searchWord() {
     const phrase = searchBox.value.trim();
     if (!phrase) return;
-    errMsg.textContent  = '';
-    status.textContent  = `Searching for "${phrase}"...`;
-    resultsPanel.style.display = 'none';
-    display.style.display      = 'none';
-    socket.emit('highlight_search', {
-      service:      serviceEl.value,
-      word:         phrase,
-      search_lang:  listenLangEl.value,
+    errMsg.textContent = "";
+    status.textContent = `Searching for "${phrase}"...`;
+    resultsPanel.style.display = "none";
+    display.style.display = "none";
+    socket.emit("highlight_search", {
+      service: serviceEl.value,
+      word: phrase,
+      search_lang: listenLangEl.value,
       display_lang: displayLangEl.value,
     });
   }
 
-  searchBox.addEventListener('keydown', e => {
-    if (e.key === 'Enter') searchWord();
+  searchBox.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") searchWord();
   });
 
   function getLineText(l) {
-    return displayLangEl.value === 'en' ? (l.en_text || '') : (l.he_text || '');
+    return displayLangEl.value === "en" ? l.en_text || "" : l.he_text || "";
   }
 
   function isRtl() {
-    return displayLangEl.value !== 'en';
+    return displayLangEl.value !== "en";
   }
 
   function renderLines(highlightIndex) {
-    display.innerHTML = lines.map(l => {
-      const text        = getLineText(l);
-      const highlighted = l.line_index === highlightIndex;
-      return `<p id="line-${l.line_index}"
-                 style="direction:${isRtl() ? 'rtl' : 'ltr'}; margin: 4px 0; background:${highlighted ? 'yellow' : 'none'};"
+    display.innerHTML = lines
+      .map((l) => {
+        const text = getLineText(l);
+        const highlighted = l.line_index === highlightIndex;
+        return `<p id="line-${l.line_index}"
+                 style="direction:${isRtl() ? "rtl" : "ltr"}; margin: 4px 0; background:${highlighted ? "yellow" : "none"};"
                >${text}</p>`;
-    }).join('');
-    display.style.display = '';
+      })
+      .join("");
+    display.style.display = "";
   }
 
   function rerenderLines() {
@@ -159,66 +167,72 @@
     renderLines(currentLine);
     if (currentLine >= 0) {
       const el = document.getElementById(`line-${currentLine}`);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
 
   function moveHighlight(line_index) {
     if (currentLine >= 0) {
       const prev = document.getElementById(`line-${currentLine}`);
-      if (prev) prev.style.background = '';
+      if (prev) prev.style.background = "";
     }
     currentLine = line_index;
     const el = document.getElementById(`line-${line_index}`);
     if (el) {
-      el.style.background = 'yellow';
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.style.background = "yellow";
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }
 
   function gotoMatch(match) {
-    socket.emit('highlight_goto', {
-      prayer_id:    match.prayer_id,
-      line_index:   match.line_index,
+    socket.emit("highlight_goto", {
+      prayer_id: match.prayer_id,
+      line_index: match.line_index,
       display_lang: displayLangEl.value,
     });
   }
 
-  socket.on('highlight_results', ({ word, matches }) => {
+  socket.on("highlight_results", ({ word, matches }) => {
     allMatches = matches;
-    status.textContent = `Found ${matches.length} match${matches.length !== 1 ? 'es' : ''} for "${word}"`;
+    status.textContent = `Found ${matches.length} match${matches.length !== 1 ? "es" : ""} for "${word}"`;
 
-    resultsCount.textContent = `${matches.length} match${matches.length !== 1 ? 'es' : ''}`;
-    resultsList.innerHTML = matches.map((m, i) =>
-      `<div>
+    resultsCount.textContent = `${matches.length} match${matches.length !== 1 ? "es" : ""}`;
+    resultsList.innerHTML = matches
+      .map(
+        (m, i) =>
+          `<div>
         <button onclick="gotoMatch(allMatches[${i}])">Go</button>
         &nbsp;${m.prayer_name} — line ${m.line_index + 1}
         &nbsp;<small>(${Math.round(m.score * 100)}%)</small>
-      </div>`
-    ).join('<br>');
+      </div>`,
+      )
+      .join("<br>");
 
-    resultsPanel.style.display = '';
+    resultsPanel.style.display = "";
   });
 
-  socket.on('highlight_found', ({ line_index, prayer_name, lines: incoming }) => {
-    lines       = incoming;
-    currentLine = line_index;
-    prayerName.textContent = prayer_name;
-    renderLines(line_index);
-    document.getElementById('settings-panel').style.display = 'none';
-    const el = document.getElementById(`line-${line_index}`);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  });
+  socket.on(
+    "highlight_found",
+    ({ line_index, prayer_name, lines: incoming }) => {
+      lines = incoming;
+      currentLine = line_index;
+      prayerName.textContent = prayer_name;
+      renderLines(line_index);
+      document.getElementById("settings-panel").style.display = "none";
+      const el = document.getElementById(`line-${line_index}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    },
+  );
 
-  socket.on('highlight_miss', ({ word }) => {
+  socket.on("highlight_miss", ({ word }) => {
     status.textContent = `"${word}" not found in this service.`;
   });
 
-  socket.on('highlight_error', ({ message }) => {
+  socket.on("highlight_error", ({ message }) => {
     errMsg.textContent = message;
   });
 
-  socket.on('highlight_update', ({ line_index, word }) => {
+  socket.on("highlight_update", ({ line_index, word }) => {
     if (!lines.length) return;
     moveHighlight(line_index);
     status.textContent = `Line ${line_index + 1} — "${word}"`;

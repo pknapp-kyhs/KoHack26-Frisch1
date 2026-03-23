@@ -1,15 +1,27 @@
 from flask import *
 from extensions import db, socketio
+import json
+import threading
+from flask_socketio import SocketIO
+from vosk import Model, KaldiRecognizer
+from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
 
 app = Flask(__name__)
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*", #allowing any page to talk to server (for development)
+    async_mode="threading"
+)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///prayertext.db'
 app.config['SECRET_KEY'] = 'SecretKey'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+
+model = Model('websocket/model')
+
 db.init_app(app)
 socketio.init_app(app)
 
-from sefaria_api.prayermodel import PrayerService, PrayerText, HebrewWord, EnglishWord, HebrewPhrase, EnglishPhrase, Line
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -18,6 +30,10 @@ class User(db.Model):
 
 with app.app_context():
     db.create_all()
+
+# One recognizer + one lock per connected client
+recognizers = {}
+recognizer_locks = {}
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -109,7 +125,36 @@ def siddur():
         prev_prayer      = prev_prayer,
     )
 
-from websocket import wbw_socket, highlight_socket
+#socket code ====
+@socketio.on('connect')
+def handle_connect():
+    sid = request.sid
+    recognizers[sid] = KaldiRecognizer(model, 16000)
+    recognizers[sid].SetWords(True)
+    recognizer_locks[sid] = threading.Lock() #ensures no recognizers get mixed up
+
+@socketio.on("audio_stream")
+def handle_audio_stream(audio_chunk):
+    print("got a chunk")
+    sid = request.sid
+    recognizer = recognizers.get(sid)
+    lock = recognizer_locks.get(sid)
+
+    with lock:
+        if recognizer.AcceptWaveform(audio_chunk): #check if chunk contains a full word or not
+            result = json.loads(recognizer.Result())
+            text = result.get("text", "").strip()
+            if text:
+                #FINAL TRANSCRIPTION = text
+                print(text)
+                socketio.emit("transcription_result", {"text": text + " "}, to=sid)
+
+
+@socketio.on("disconnect")
+def handle_disconnect():
+    sid = request.sid
+    recognizers.pop(sid, None)
+    recognizer_locks.pop(sid, None)
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=True, port=5001)
