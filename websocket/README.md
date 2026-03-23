@@ -3,7 +3,7 @@ pyenv install 3.11.8
 # WAIT FOR IT TO FINSIH. TAKES A WHILE
 rm -rf venv
 ~/.pyenv/versions/3.11.8/bin/python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate or (.venv\Scripts\activate) for windows
 pip install vosk
 Download vosk-model-small-en-us-0.15 from https://alphacephei.com/vosk/models\
 Create "model" folder in same dir as app.py

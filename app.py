@@ -109,7 +109,7 @@ def siddur():
         prev_prayer      = prev_prayer,
     )
 
-from websocket import wbw_socket, highlight_socket
+# from websocket import wbw_socket, highlight_socket
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
