@@ -2,10 +2,13 @@ from soferai import SoferAI
 from dotenv import load_dotenv
 import os
 from time import sleep
-
+        
 class SoferAPIManager:
+    jobsStatus = {}
+
     def __init__(self):
-        load_dotenv('secure.env')
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        load_dotenv(os.path.join(base_dir, 'secure.env'))
         key = os.getenv('SOFER_AI_KEY')
         self.client = SoferAI(api_key=key)
 
@@ -43,3 +46,10 @@ class SoferAPIManager:
         job_id = self.transcribeFile(encodedFile)
         job_result = self.pollForJob(job_id, 15)
         print(job_result.text)
+        
+    def runFullProcessAndCallback(self, pathToFile, callBack):
+        encodedFile = self.encodeFile(pathToFile)
+        job_id = self.transcribeFile(encodedFile)
+        job_result = self.pollForJob(job_id, 15)
+        print(job_result.text)
+        callBack(job_result.text)

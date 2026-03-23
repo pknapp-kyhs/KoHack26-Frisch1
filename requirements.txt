@@ -1,5 +1,10 @@
+# Basic Website
 Flask 
 requests
 flask_sqlalchemy
 flask_socketio
 jinja2
+
+# Sofer AI
+Soferai
+dotenv
