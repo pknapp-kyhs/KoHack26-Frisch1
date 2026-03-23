@@ -83,7 +83,7 @@
   <button id="btn-next" disabled>Next &#8594;</button>
 </span>
 
-<button onclick="window.location.href = '/'">Home</button>
+<a href="/"><button>Home</button></a>
 
 <br /><br />
 
@@ -127,17 +127,20 @@
   let running = false;
   let _prayers = [];
 
+  // Toggles the visibility of the settings panel
   function toggleSettings() {
     const panel = document.getElementById("settings-panel");
     panel.style.display = panel.style.display === "none" ? "" : "none";
   }
 
+  // Calculates the delay in milliseconds based on the Words Per Minute input
   function getDelayMs() {
     return Math.round((60 / parseInt(wpmEl.value)) * 1000);
   }
 
-  wpmEl.addEventListener("input", () => {
-    document.getElementById("wpm-label").textContent = wpmEl.value;
+  wpmEl.addEventListener('input', () => {
+    document.getElementById('wpm-label').textContent = wpmEl.value;
+    // Adjusts interval speed dynamically if already running
     if (running && !paused) {
       clearInterval(timer);
       startAuto();
@@ -166,6 +169,7 @@
       .join("");
   }
 
+  // Updates the visible UI controls based on the selected reading mode
   function onModeChange() {
     const isManual = manualEl.checked;
     const mode = modeEl.value;
@@ -190,6 +194,7 @@
 
   serviceEl.addEventListener("change", loadPrayers);
 
+  // Formats the text arrays depending on if the user selected word, phrase, or chunking
   function buildChunks(words, phrases, mode, chunkSize) {
     if (mode === "phrase") return phrases;
     if (mode === "chunk") {
@@ -202,6 +207,7 @@
     return words;
   }
 
+  // Handles updating the display element with the correct text and directionality
   function showChunk(i) {
     if (i < 0 || i >= chunks.length) return;
     display.style.direction = isHebrewLang() ? "rtl" : "ltr";
@@ -209,6 +215,7 @@
     status.textContent = `${i + 1} / ${chunks.length}`;
   }
 
+  // The main interval loop that drives the automated reading feature
   function startAuto() {
     clearInterval(timer);
     timer = setInterval(() => {
@@ -262,9 +269,10 @@ socket.on('connect', () => {
     renderPrayerOptions();
   });
 
-  socket.on("wbw_ready", ({ words, phrases }) => {
-    errMsg.textContent = "";
-    const mode = modeEl.value;
+  // Fired when the backend responds with the requested prayer text data
+  socket.on('wbw_ready', ({ words, phrases }) => {
+    errMsg.textContent = '';
+    const mode      = modeEl.value;
     const chunkSize = parseInt(chunkEl.value) || 3;
     chunks = buildChunks(words, phrases, mode, chunkSize);
     idx = 0;
@@ -288,7 +296,8 @@ socket.on('connect', () => {
     reset();
   });
 
-  btnStart.addEventListener("click", () => {
+  // Emits the request to the backend to begin processing a specific prayer block
+  btnStart.addEventListener('click', () => {
     if (!prayerEl.value) return;
     clearInterval(timer);
     paused = false;
@@ -325,6 +334,7 @@ socket.on('connect', () => {
     idx++;
   });
 
+  // Clears the interval and resets the UI buttons to their default state
   function reset() {
     clearInterval(timer);
     paused = false;

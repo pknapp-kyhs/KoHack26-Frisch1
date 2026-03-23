@@ -1,0 +1,9 @@
+{% extends "layout.html" %}
+{% block content %}
+    <h1>Delete Account</h1>
+    <p>Are you sure you want to delete your account? This action cannot be undone.</p>
+    <form action="/delete" method="POST">
+      <input type="submit" value="Delete Account">
+    </form>
+    <a href="/"><button>Home</button></a>
+{% endblock %}

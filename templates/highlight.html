@@ -87,31 +87,30 @@
   let currentLine = -1;
   let allMatches = [];
 
+  // Toggle display of the service selection panel
   function toggleSettings() {
     const panel = document.getElementById("settings-panel");
     panel.style.display = panel.style.display === "none" ? "" : "none";
   }
 
-  function isHebrewDisplay() {
-    return displayLangEl.value !== "en";
-  }
+  // Boolean checks for current UI language state
+  function isHebrewDisplay() { return displayLangEl.value !== "en"; }
+  function isHebrewSearch() { return listenLangEl.value !== "en"; }
 
-  function isHebrewSearch() {
-    return listenLangEl.value !== "en";
-  }
-
+  // Update dropdown labels when user switches display language
   function updateServiceLabels() {
     Array.from(serviceEl.options).forEach((opt) => {
-      opt.textContent =
-        isHebrewDisplay() && opt.dataset.he ? opt.dataset.he : opt.value;
+      opt.textContent = isHebrewDisplay() && opt.dataset.he ? opt.dataset.he : opt.value;
     });
   }
 
+  // Handle display language change: update UI and re-render text
   function onDisplayLangChange() {
     updateServiceLabels();
     rerenderLines();
   }
 
+  // Adjust search box placeholder and text direction (RTL/LTR)
   function onListenLangChange() {
     if (isHebrewSearch()) {
       searchBox.placeholder = "Type a Hebrew phrase...";
@@ -122,6 +121,7 @@
     }
   }
 
+  // Emit search query to server via Socket.io
   function searchWord() {
     const phrase = searchBox.value.trim();
     if (!phrase) return;
@@ -137,18 +137,20 @@
     });
   }
 
+  // Map Enter key to the search function
   searchBox.addEventListener("keydown", (e) => {
     if (e.key === "Enter") searchWord();
   });
 
+  // Determine which text property (en/he) to use for a line
   function getLineText(l) {
     return displayLangEl.value === "en" ? l.en_text || "" : l.he_text || "";
   }
 
-  function isRtl() {
-    return displayLangEl.value !== "en";
-  }
+  // Check if current text direction should be Right-to-Left
+  function isRtl() { return displayLangEl.value !== "en"; }
 
+  // Construct and inject HTML for the prayer lines
   function renderLines(highlightIndex) {
     display.innerHTML = lines
       .map((l) => {
@@ -162,6 +164,7 @@
     display.style.display = "";
   }
 
+  // Refresh view and maintain scroll position on the active line
   function rerenderLines() {
     if (!lines.length) return;
     renderLines(currentLine);
@@ -171,6 +174,7 @@
     }
   }
 
+  // Shift the yellow highlight to a new line index
   function moveHighlight(line_index) {
     if (currentLine >= 0) {
       const prev = document.getElementById(`line-${currentLine}`);
@@ -184,6 +188,7 @@
     }
   }
 
+  // Navigate to a specific match result from the list
   function gotoMatch(match) {
     socket.emit("highlight_goto", {
       prayer_id: match.prayer_id,
@@ -192,38 +197,30 @@
     });
   }
 
+  // Socket listener: Handle multiple search results found
   socket.on("highlight_results", ({ word, matches }) => {
     allMatches = matches;
     status.textContent = `Found ${matches.length} match${matches.length !== 1 ? "es" : ""} for "${word}"`;
-
     resultsCount.textContent = `${matches.length} match${matches.length !== 1 ? "es" : ""}`;
-    resultsList.innerHTML = matches
-      .map(
-        (m, i) =>
-          `<div>
-        <button onclick="gotoMatch(allMatches[${i}])">Go</button>
-        &nbsp;${m.prayer_name} — line ${m.line_index + 1}
-        &nbsp;<small>(${Math.round(m.score * 100)}%)</small>
-      </div>`,
-      )
-      .join("<br>");
-
+    resultsList.innerHTML = matches.map((m, i) =>
+          `<div><button onclick="gotoMatch(allMatches[${i}])">Go</button>
+          &nbsp;${m.prayer_name} — line ${m.line_index + 1}
+          &nbsp;<small>(${Math.round(m.score * 100)}%)</small></div>`).join("<br>");
     resultsPanel.style.display = "";
   });
 
-  socket.on(
-    "highlight_found",
-    ({ line_index, prayer_name, lines: incoming }) => {
-      lines = incoming;
-      currentLine = line_index;
-      prayerName.textContent = prayer_name;
-      renderLines(line_index);
-      document.getElementById("settings-panel").style.display = "none";
-      const el = document.getElementById(`line-${line_index}`);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
-    },
-  );
+  // Socket listener: Load specific prayer content and scroll to line
+  socket.on("highlight_found", ({ line_index, prayer_name, lines: incoming }) => {
+    lines = incoming;
+    currentLine = line_index;
+    prayerName.textContent = prayer_name;
+    renderLines(line_index);
+    document.getElementById("settings-panel").style.display = "none";
+    const el = document.getElementById(`line-${line_index}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
 
+  // Socket listeners for misses and general errors
   socket.on("highlight_miss", ({ word }) => {
     status.textContent = `"${word}" not found in this service.`;
   });
@@ -232,22 +229,25 @@
     errMsg.textContent = message;
   });
 
+  // Socket listener: Updates highlighting as the speaker progresses
   socket.on("highlight_update", ({ line_index, word }) => {
     if (!lines.length) return;
     moveHighlight(line_index);
     status.textContent = `Line ${line_index + 1} — "${word}"`;
   });
 
-socket.on("live_transcription_phrase", ({ text }) => {
-  searchBox.value = text;
-  socket.emit("highlight_search", {
-    service: serviceEl.value,
-    word: text,
-    search_lang: "en",
-    display_lang: displayLangEl.value,
+  // Socket listener: Captures voice transcription to trigger a search
+  socket.on("live_transcription_phrase", ({ text }) => {
+    searchBox.value = text;
+    socket.emit("highlight_search", {
+      service: serviceEl.value,
+      word: text,
+      search_lang: "en",
+      display_lang: displayLangEl.value,
+    });
   });
-});
 
+  // Run initial UI logic on load
   updateServiceLabels();
 </script>
 

@@ -1,3 +1,4 @@
+# Basic Website
 Flask 
 requests
 flask_sqlalchemy
@@ -10,3 +11,7 @@ vosk
 #pip install -r requirements.txt
 flask_socketio
 jinja2
+
+# Sofer AI
+Soferai
+dotenv
