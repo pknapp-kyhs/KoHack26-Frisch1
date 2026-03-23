@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<form method="post" action="/highlight">
+<label>
+    <input type="checkbox" id="toggle" name="toggle">
+    Follow along with the Chazzan
+</label>
+</form>
+<br>
+<button onclick="window.location.href='/'">Home</button>
+
+{% endblock %}

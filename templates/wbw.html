@@ -1,0 +1,272 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<h1>Word by Word Prayer</h1>
+
+<button onclick="toggleSettings()">Settings</button>
+
+<br><br>
+
+<div id="settings-panel" style="display:none">
+
+  <label for="service">Service:</label>
+  <select id="service">
+    {% for s in services %}
+      <option value="{{ s.name_en }}">{{ s.name_en }}</option>
+    {% endfor %}
+  </select>
+
+  <br><br>
+
+  <label for="prayer">Prayer:</label>
+  <select id="prayer"></select>
+
+  <br><br>
+
+  <label for="lang">Language:</label>
+  <select id="lang">
+    <option value="vowel">Hebrew (voweled)</option>
+    <option value="he">Hebrew (plain)</option>
+    <option value="en">English</option>
+  </select>
+
+  <br><br>
+
+  <label for="mode">Display mode:</label>
+  <select id="mode" onchange="onModeChange()">
+    <option value="word">Word by word</option>
+    <option value="chunk">N words at a time</option>
+    <option value="phrase">Phrase by phrase</option>
+  </select>
+
+  <br><br>
+
+  <div id="chunk-size-row" style="display:none">
+    <label for="chunk-size">Words per chunk:</label>
+    <input type="number" id="chunk-size" value="3" min="1" max="20" style="width:60px">
+    <br><br>
+  </div>
+
+  <label>
+    <input type="checkbox" id="manual-mode" onchange="onModeChange()"> Manual mode
+  </label>
+
+  <br><br>
+
+  <div id="speed-row">
+    <label for="wpm">Speed: <strong><span id="wpm-label">60</span> WPM</strong></label><br>
+    <input type="range" id="wpm" min="10" max="300" value="60">
+  </div>
+
+  <br>
+
+</div>
+
+<button id="btn-start">Start</button>
+<button id="btn-stop" disabled>Stop</button>
+
+<span id="auto-controls">
+  <button id="btn-pause" disabled>Pause</button>
+</span>
+
+<span id="manual-controls" style="display:none">
+  <button id="btn-prev" disabled>&#8592; Prev</button>
+  <button id="btn-next" disabled>Next &#8594;</button>
+</span>
+
+<button onclick="window.location.href='/'">Home</button>
+
+<br><br>
+
+<div id="word-display" style="font-size: 56px; text-align: center; min-height: 80px;">—</div>
+
+<br>
+
+<div id="status" style="text-align: center;"></div>
+<div id="error-msg" style="color: red;"></div>
+
+<script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+<script>
+  const socket = io();
+
+  const serviceEl = document.getElementById('service');
+  const prayerEl  = document.getElementById('prayer');
+  const langEl    = document.getElementById('lang');
+  const modeEl    = document.getElementById('mode');
+  const chunkEl   = document.getElementById('chunk-size');
+  const wpmEl     = document.getElementById('wpm');
+  const manualEl  = document.getElementById('manual-mode');
+  const display   = document.getElementById('word-display');
+  const status    = document.getElementById('status');
+  const errMsg    = document.getElementById('error-msg');
+  const btnStart  = document.getElementById('btn-start');
+  const btnStop   = document.getElementById('btn-stop');
+  const btnPause  = document.getElementById('btn-pause');
+  const btnPrev   = document.getElementById('btn-prev');
+  const btnNext   = document.getElementById('btn-next');
+
+  let timer   = null;
+  let chunks  = [];
+  let idx     = 0;
+  let paused  = false;
+  let running = false;
+
+  function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    panel.style.display = panel.style.display === 'none' ? '' : 'none';
+  }
+
+  function getDelayMs() {
+    return Math.round((60 / parseInt(wpmEl.value)) * 1000);
+  }
+
+  wpmEl.addEventListener('input', () => {
+    document.getElementById('wpm-label').textContent = wpmEl.value;
+    if (running && !paused) {
+      clearInterval(timer);
+      startAuto();
+    }
+  });
+
+  function onModeChange() {
+    const isManual = manualEl.checked;
+    const mode     = modeEl.value;
+    document.getElementById('chunk-size-row').style.display  = mode === 'chunk' ? '' : 'none';
+    document.getElementById('speed-row').style.display       = isManual ? 'none' : '';
+    document.getElementById('auto-controls').style.display   = isManual ? 'none' : '';
+    document.getElementById('manual-controls').style.display = isManual ? '' : 'none';
+  }
+
+  onModeChange();
+
+  function buildChunks(words, phrases, mode, chunkSize) {
+    if (mode === 'phrase') return phrases;
+    if (mode === 'chunk') {
+      const result = [];
+      for (let i = 0; i < words.length; i += chunkSize) {
+        result.push(words.slice(i, i + chunkSize).join(' '));
+      }
+      return result;
+    }
+    return words;
+  }
+
+  function isHebrew(lang) {
+    return lang === 'vowel' || lang === 'he';
+  }
+
+  function showChunk(i) {
+    if (i < 0 || i >= chunks.length) return;
+    display.style.direction = isHebrew(langEl.value) ? 'rtl' : 'ltr';
+    display.textContent     = chunks[i];
+    status.textContent      = `${i + 1} / ${chunks.length}`;
+  }
+
+  function startAuto() {
+    clearInterval(timer);
+    timer = setInterval(() => {
+      if (paused) return;
+      if (idx >= chunks.length) {
+        clearInterval(timer);
+        display.textContent = '—';
+        status.textContent  = 'Done';
+        reset();
+        return;
+      }
+      showChunk(idx);
+      idx++;
+    }, getDelayMs());
+  }
+
+  function loadPrayers() {
+    socket.emit('get_prayers', { service: serviceEl.value });
+  }
+
+  serviceEl.addEventListener('change', loadPrayers);
+
+  socket.on('prayers_list', ({ prayers }) => {
+    prayerEl.innerHTML = prayers
+      .map(p => `<option value="${p.en_title}">${p.en_title}</option>`)
+      .join('');
+  });
+
+  socket.on('wbw_ready', ({ words, phrases }) => {
+    errMsg.textContent = '';
+    const mode      = modeEl.value;
+    const chunkSize = parseInt(chunkEl.value) || 3;
+    chunks = buildChunks(words, phrases, mode, chunkSize);
+    idx    = 0;
+
+    document.getElementById('settings-panel').style.display = 'none';
+
+    if (manualEl.checked) {
+      showChunk(0);
+      idx = 1;
+      btnPrev.disabled = false;
+      btnNext.disabled = false;
+    } else {
+      startAuto();
+    }
+  });
+
+  socket.on('wbw_done', () => {});
+
+  socket.on('wbw_error', ({ message }) => {
+    errMsg.textContent = message;
+    reset();
+  });
+
+  btnStart.addEventListener('click', () => {
+    if (!prayerEl.value) return;
+    clearInterval(timer);
+    paused  = false;
+    running = true;
+    btnStart.disabled = true;
+    btnStop.disabled  = false;
+    btnPause.disabled = false;
+
+    socket.emit('start_wbw', {
+      service: serviceEl.value,
+      prayer:  prayerEl.value,
+      lang:    langEl.value,
+      wpm:     parseInt(wpmEl.value),
+    });
+  });
+
+  btnStop.addEventListener('click', reset);
+
+  btnPause.addEventListener('click', () => {
+    paused = !paused;
+    btnPause.textContent = paused ? 'Resume' : 'Pause';
+  });
+
+  btnNext.addEventListener('click', () => {
+    if (idx >= chunks.length) return;
+    showChunk(idx);
+    idx++;
+  });
+
+  btnPrev.addEventListener('click', () => {
+    if (idx <= 1) return;
+    idx -= 2;
+    showChunk(idx);
+    idx++;
+  });
+
+  function reset() {
+    clearInterval(timer);
+    paused  = false;
+    running = false;
+    btnStart.disabled = false;
+    btnStop.disabled  = true;
+    btnPause.disabled = true;
+    btnPause.textContent = 'Pause';
+    btnPrev.disabled  = true;
+    btnNext.disabled  = true;
+  }
+
+  loadPrayers();
+</script>
+
+{% endblock %}

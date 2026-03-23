@@ -1,0 +1,70 @@
+{% extends "layout.html" %}
+
+{% block content %}
+
+<h1>Siddur</h1>
+
+<form method="POST" action="/siddur">
+
+  <label>Service:</label>
+  <select name="service" onchange="this.form.submit()">
+    {% for s in services %}
+      <option value="{{ s.name_en }}" {% if s.name_en == selected_service %}selected{% endif %}>
+        {{ s.name_en }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <br><br>
+
+  <label>Prayer:</label>
+  <select name="prayer" onchange="this.form.submit()">
+    <option value="">-- select --</option>
+    {% for p in prayers %}
+      <option value="{{ p.en_title }}" {% if p.en_title == selected_prayer %}selected{% endif %}>
+        {{ p.en_title }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <br><br>
+
+  <label>Language:</label>
+  <select name="lang" onchange="this.form.submit()">
+    <option value="vowel" {% if selected_lang == 'vowel' %}selected{% endif %}>Hebrew (voweled)</option>
+    <option value="he"    {% if selected_lang == 'he'    %}selected{% endif %}>Hebrew (plain)</option>
+    <option value="en"    {% if selected_lang == 'en'    %}selected{% endif %}>English</option>
+  </select>
+
+</form>
+
+<br>
+
+{% if prayer %}
+  <p dir="{{ 'rtl' if selected_lang != 'en' else 'ltr' }}">{{ text }}</p>
+{% elif selected_prayer %}
+  <p>Could not load prayer text.</p>
+{% else %}
+  <p>Select a prayer to view the text.</p>
+{% endif %}
+
+<br>
+
+<form method="POST" action="/siddur" style="display:inline">
+  <input type="hidden" name="service" value="{{ selected_service }}">
+  <input type="hidden" name="lang" value="{{ selected_lang }}">
+  <input type="hidden" name="prayer" value="{{ prev_prayer }}">
+  <button type="submit" {% if not prev_prayer %}disabled{% endif %}>&#8592; Prev</button>
+</form>
+
+<form method="POST" action="/siddur" style="display:inline">
+  <input type="hidden" name="service" value="{{ selected_service }}">
+  <input type="hidden" name="lang" value="{{ selected_lang }}">
+  <input type="hidden" name="prayer" value="{{ next_prayer }}">
+  <button type="submit" {% if not next_prayer %}disabled{% endif %}>Next &#8594;</button>
+</form>
+
+<br><br>
+<button onclick="window.location.href='/'">Home</button>
+
+{% endblock %}
