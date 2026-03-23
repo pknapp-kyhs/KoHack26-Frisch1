@@ -125,13 +125,31 @@ def highlight():
     services = PrayerService.query.all()
     return render_template("highlight.html", services=services)
 
+from sofer_ai.SoferAPIManager import SoferAPIManager
+soferManager = SoferAPIManager()
+transcription_results = {}
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
     if 'username' not in session:
         flash('Please log in to access the transcription feature')
         return redirect(url_for('index'))
+    if request.method == 'POST':
+        import os
+        import threading
+        uploadedFile = request.files.get('audio')
+        filePath = os.path.join('sofer_ai/uploadedFiles', uploadedFile.filename)
+        uploadedFile.save(filePath)
 
-    return render_template("transcribe.html")
+        username = session['username']
+        def on_complete(text):
+            transcription_results[username] = text
+            socketio.emit('transcription_ready', {'text': text})
+        thread = threading.Thread(target=soferManager.runFullProcessAndCallback, args=(filePath, on_complete))
+        thread.daemon = True
+        thread.start()
+        return render_template("transcribe.html", waiting=True)
+
+    return render_template("transcribe.html", transcript=transcription_results.get(session['username']))
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():

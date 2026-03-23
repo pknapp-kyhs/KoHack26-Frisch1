@@ -4,7 +4,6 @@
     <form method="post" action="/transcribe" enctype="multipart/form-data">
     <label for="audio">Upload audio file:</label><br>
     <input type="file" id="audio" name="audio" accept="audio/*"><br><br>
-
     <button type="submit">Upload</button>
 </form>
 <br>
@@ -14,5 +13,23 @@
 <form method="post" action="/transcribe">
         <button type="submit" name="Stop_Record">Stop Record</button>
 </form>
-<a href="/"><button>Home</button></a>
+<button onclick="window.location.href='/'">Home</button>
+
+{% if transcript %}
+<h3>✅ Your Transcription:</h3>
+<p>{{ transcript }}</p>
+
+{% elif waiting %}
+<p id="status">⏳ Transcribing, please wait...</p>
+<p id="transcript"></p>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+        const socket = io();
+        socket.on('transcription_ready', function (data) {
+                document.getElementById('status').innerText = '✅ Done!';
+                document.getElementById('transcript').innerText = data.text;
+        });
+</script>
+{% endif %}
+
 {% endblock %}
