@@ -93,10 +93,23 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
+@app.route('/delete', methods=['GET', 'POST'])
+def delete_account():
+    if request.method == 'POST':
+        if 'username' in session:
+            user = User.query.filter_by(username=session['username']).first()
+            if user:
+                db.session.delete(user)
+                db.session.commit()
+            session.clear()
+        return redirect(url_for('index'))
+
+    return render_template("delete.html")
+
+
 @app.route('/wbw', methods=['GET', 'POST'])
 def word_by_word():
-    # Require authentication
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the word-by-word feature')
         return redirect(url_for('index'))
 
@@ -105,8 +118,7 @@ def word_by_word():
 
 @app.route('/highlight', methods=['GET', 'POST'])
 def highlight():
-    # Require authentication
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the Follow the Chazzan feature')
         return redirect(url_for('index'))
 
@@ -115,8 +127,7 @@ def highlight():
 
 @app.route('/transcribe', methods=['POST', 'GET'])
 def transcribe():
-    # Require authentication
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the transcription feature')
         return redirect(url_for('index'))
 
@@ -124,8 +135,7 @@ def transcribe():
 
 @app.route('/siddur', methods=['GET', 'POST'])
 def siddur():
-    # Authentication guard: user must be logged in to view siddur functionality.
-    if not session:
+    if 'username' not in session:
         flash('Please log in to access the siddur')
         return redirect(url_for('index'))
 
